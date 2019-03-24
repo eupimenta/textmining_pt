@@ -1,0 +1,71 @@
+---
+title: "Mineração de texto em pedidos de Lei de Acesso à informação - LAI"
+output: 
+  pdf_document: 
+    keep_tex: yes
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+ <!-- REFERÊNCIAS
+ https://www.tidytextmining.com/tidytext.html#contrasting-tidy-text-with-other-data-structures
+ 
+ -->
+
+## Packages for this routine
+```{r, include=FALSE, message=FALSE}
+# install.packages("readODS")
+library(readODS)        # read .ods file
+library(tidyverse)      # data manipulation tidyverse_packages()
+library(tidytext)       # Text Mining using 'dplyr', 'ggplot2', and other Tidy Tools
+library(tidyr)          # Easily Tidy Data with 'spread()' and 'gather()' Functions
+library(tm)
+library(quanteda)
+library(stringr)
+library(knitr)
+library(kableExtra)
+library(scales)
+library(wordcloud)
+library(wordcloud2)
+```
+
+# BASE DE DADOS
+
+## Importação dos dados
+<!--
+PATH = "C:/proj_eSIC_v10/textmining_pt/DATA/"
+#PATH = "/Users/ewersonpimenta/Desktop/ESIC_TCC/Pedidos_LAI_EPE/BASE_DADOS/"
+-->
+```{r, include=FALSE, message=FALSE}
+PATH = "C:/proj_eSIC_v10/textmining_pt/DATA/"
+```
+
+Caminho do projeto
+```yaml
+PATH = "..;/proj_eSIC_v10/textmining_pt/DATA/"
+```
+
+```{r child = '01_importacao.Rmd'}
+```
+
+## Pré-processamento dos dados
+
+```{r child = '02_preprocessamento.Rmd'}
+```
+
+## Mineração de texto
+
+```{r child = '03_textmining.Rmd'}
+```
+
+## ANEXOS
+
+```{r child = '7_ANEXOS.Rmd'}
+```
+
+
+
