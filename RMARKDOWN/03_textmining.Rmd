@@ -1,0 +1,1322 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+<!--      
+Essa Rotina é destinada a importação de dados do projeto de mineração de texto em pedidos via Sistema Eletrônico de Serviço de Informação ao Cidadão (e-SIC)
+-->
+
+- Palavras por diretoria
+```{r}
+library(tidytext)
+diretoria_palavras <- DB %>%
+  unnest_tokens(palavra, DESCRI_PEDIDO) %>%
+  count(DIRETORIA, palavra, sort = TRUE) %>%
+  ungroup()
+```
+
+Iniciamos as manipulações utilizando recursos da função `unnest_tokens( )` do pacote `library(tidytext)` que nos permite trabalhar com textos em um formato `tidy` que coloca uma palavra por linha e cada coluna um conjunto de caracteres de text a serem separados por palavra, formando, assim, _termos/palavras_ por linha. Utilizamos, aindam dos recursos do pacote `library(diplyr)` para agrupar esses termos por diretoria e quantificar as suas repetições.
+
+A tabela a seguir mostra a frequência das 10 palavras de maior ocorrência de todos os pedidos, agregadados por diretoria.
+
+- Tabela 03 Palavras mais frequentes no conjunto de solicitações
+```{r}
+diretoria_palavras[0:10,] %>%
+  kable("latex", caption = "Palavras mais frequentes no conjunto de solicitações", 
+        booktabs = T, format.args = list(decimal.mark = ',', big.mark = "'")) %>%
+  kable_styling(latex_options = c("striped", "hold_position"))
+```
+
+Verificamos que exatamente as 10 palavras mais frequentes em todos os pedidos realizados são palavras sem muito interesse contextual pois não acrescentam nenhum sentido semântico, são essas: preposição (de), conjunção (e) e artigos(o,a). Veremos mais a frente (indicar sessão) como remover essas palavras que são ditas _stopwords_ e trabalhar apenas com palavras de sentido maior semântico, acrescentando assim maior assertividade na classificação do nosso modelo a ser proposto no capítulo (indicar capítulo).
+
+
+- Total de palavras
+
+```{r}
+total_palavras = diretoria_palavras %>%
+group_by(DIRETORIA) %>%
+summarize(total_palavras = sum(n))
+```
+
+- Tabela 04 Total de palavras por diretoria
+```{r}
+total_palavras %>%
+  kable("latex", caption = "Palavras mais frequentes no conjunto de solicitações", 
+        booktabs = T, format.args = list(decimal.mark = ',', big.mark = ".")) %>%
+  kable_styling(latex_options = c("striped", "hold_position"))
+```
+
+É importante ressaltar aqui, a diferença extrema entre o número de palavras existente por diretoria, isso se dá devido ao número de pedidos realizados por diretoria já constatado anteriormente. Temos 210 solicitações registradas para a DEA, 197 para a DEE, 115 para a DGC e, apenas, 24 e 20 pedidos para a DPG e OUTROS, respectivamente. 
+
+Vamos, portanto, visualizar o número médio de palavras por pedido e diretoria. Para isso, vamos pegar o total de palavras por diretoria e dividir pelo total de pedidos por diretoria.
+
+```{r}
+prop_palavras_pedido_dir = left_join(pedidos_diretoria, 
+                                                total_palavras, by = "DIRETORIA")
+prop_palavras_pedido_dir$palavras_por_pedido = round(prop_palavras_pedido_dir$total_palavras / prop_palavras_pedido_dir$total_pedidos, 2)
+
+```
+- Tabela 04 Número médio de palavras por pedido e diretoria
+```{r}
+prop_palavras_pedido_dir %>%
+  kable("latex", caption = "Palavras mais frequentes no conjunto de solicitações", 
+        booktabs = T, format.args = list(decimal.mark = ',', big.mark = "'")) %>%
+  kable_styling(latex_options = c("striped", "hold_position"))
+```
+- Junta informações
+```{r}
+diretoria_palavras = left_join(diretoria_palavras, total_palavras, by = "DIRETORIA")
+```
+
+
+- Distribuição do nº de palavras usadas em solicitações por diretoria (histograma)
+```{r}
+library(ggplot2)
+gcomma <- function(x) format(x, big.mark = ".", decimal.mark = ",", scientific = FALSE) 
+
+ggplot(diretoria_palavras, aes(n/total_palavras, fill = DIRETORIA)) +
+geom_histogram(show.legend = FALSE, binwidth = .0085) + xlim(NA, .025) +
+facet_wrap(~DIRETORIA, ncol = 2, scales = "free_y") +
+  scale_y_continuous(labels=gcomma) + 
+  scale_x_continuous(labels=gcomma)
+```
+
+
+- Palavras mais frequentes por diretoria
+
+```{r}
+PROP_PALAVRA = diretoria_palavras %>%
+    mutate(palavra = str_extract(palavra, "[a-z']+")) %>%
+    count(DIRETORIA, palavra) %>%
+    group_by(DIRETORIA) %>%
+    mutate(proportion = n / sum(n)) %>%
+    select(-n) %>%
+    spread(DIRETORIA, proportion)
+```
+
+
+<!--
+```{r}
+DEE <- diretoria_palavras %>%
+  filter(DIRETORIA == "DEE")
+
+DEA <- diretoria_palavras %>%
+  filter(DIRETORIA == "DEA")
+
+DPG <- diretoria_palavras %>%
+  filter(DIRETORIA == "DPG")
+
+DGC <- diretoria_palavras %>%
+  filter(DIRETORIA == "DGC")
+
+OUTROS <- diretoria_palavras %>%
+  filter(DIRETORIA == "OUTROS")
+
+PROP_PALAVRA = bind_rows(mutate(DEE, DIRETORIA = "DEE"),
+                         mutate(DEA, DIRETORIA = "DEA"),
+                         mutate(DPG, DIRETORIA = "DPG"),
+                         mutate(DGC, DIRETORIA = "DGC"),
+                         mutate(OUTROS, DIRETORIA = "OUTROS")) %>%
+    mutate(palavra = str_extract(palavra, "[a-z']+")) %>%
+    count(DIRETORIA, palavra) %>%
+    group_by(DIRETORIA) %>%
+    mutate(proportion = n / sum(n)) %>%
+    select(-n) %>%
+    spread(DIRETORIA, proportion)
+```
+
+-->
+
+#### Gráficos de comparação de frequência de palavras por diretorias (2 a 2)
+`COM STOPWORDS`
+
+É importante ressaltar que os gráficos a seguir mostram, apenas, a comparação de frequência de palavras existentes em ambas diretorias. Ou seja, palavras existentes em apenas uma diretoria serão desconsideradas para a geração destes.
+
+- DEE X DEA
+```{r}
+freq00 <- PROP_PALAVRA %>%
+    gather(DIRETORIA, proportion, c(`DEA`))
+  
+  library(scales)
+  # expect a warning about rows with missing values being removed
+  ggplot(freq00, aes(x = proportion, y = `DEE`,
+                        color = abs(`DEE` - proportion))) +
+    geom_abline(color = "gray40", lty = 2) +
+    geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
+    geom_text(aes(label = palavra), check_overlap = TRUE, vjust = 1.5) +
+    scale_x_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
+    scale_y_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
+    scale_color_gradient(limits = c(0, 0.001),
+                         low = "darkslategray4", high = "gray75") +
+    facet_wrap(~DIRETORIA, ncol = 1) +
+    theme(legend.position="none") +
+    labs(y = "DEE", x = NULL)
+```
+
+- DEE X DPG
+```{r}
+freq01 <- PROP_PALAVRA %>%
+    gather(DIRETORIA, proportion, c(`DPG`))
+  
+  library(scales)
+  # expect a warning about rows with missing values being removed
+  ggplot(freq01, aes(x = proportion, y = `DEE`,
+                        color = abs(`DEE` - proportion))) +
+    geom_abline(color = "gray40", lty = 2) +
+    geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
+    geom_text(aes(label = palavra), check_overlap = TRUE, vjust = 1.5) +
+    scale_x_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
+    scale_y_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
+    scale_color_gradient(limits = c(0, 0.001),
+                         low = "darkslategray4", high = "gray75") +
+    facet_wrap(~DIRETORIA, ncol = 1) +
+    theme(legend.position="none") +
+    labs(y = "DEE", x = NULL)
+```
+
+```yaml
+Warning messages:
+1: Removed 4235 rows containing missing values (geom_point). 
+2: Removed 4236 rows containing missing values (geom_text). 
+```
+
+- DEE X DGC
+```{r}
+freq02 <- PROP_PALAVRA %>%
+    gather(DIRETORIA, proportion, c(`DGC`))
+  
+  library(scales)
+  # expect a warning about rows with missing values being removed
+  ggplot(freq02, aes(x = proportion, y = `DEE`,
+                        color = abs(`DEE` - proportion))) +
+    geom_abline(color = "gray40", lty = 2) +
+    geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
+    geom_text(aes(label = palavra), check_overlap = TRUE, vjust = 1.5) +
+    scale_x_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
+    scale_y_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
+    scale_color_gradient(limits = c(0, 0.001),
+                         low = "darkslategray4", high = "gray75") +
+    facet_wrap(~DIRETORIA, ncol = 1) +
+    theme(legend.position="none") +
+    labs(y = "DEE", x = NULL)
+```
+
+```yaml
+Warning messages:
+1: Removed 3794 rows containing missing values (geom_point). 
+2: Removed 3795 rows containing missing values (geom_text).
+```
+
+- DEE X OUTROS
+```{r}
+freq03 <- PROP_PALAVRA %>%
+    gather(DIRETORIA, proportion, c(`OUTROS`))
+  
+  library(scales)
+  # expect a warning about rows with missing values being removed
+  ggplot(freq03, aes(x = proportion, y = `DEE`,
+                        color = abs(`DEE` - proportion))) +
+    geom_abline(color = "gray40", lty = 2) +
+    geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
+    geom_text(aes(label = palavra), check_overlap = TRUE, vjust = 1.5) +
+    scale_x_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
+    scale_y_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
+    scale_color_gradient(limits = c(0, 0.001),
+                         low = "darkslategray4", high = "gray75") +
+    facet_wrap(~DIRETORIA, ncol = 1) +
+    theme(legend.position="none") +
+    labs(y = "DEE", x = NULL)
+```
+
+```yaml
+Warning messages:
+1: Removed 4273 rows containing missing values (geom_point). 
+2: Removed 4274 rows containing missing values (geom_text).
+```
+
+- DEA X DPG
+```{r}
+freq04 <- PROP_PALAVRA %>%
+    gather(DIRETORIA, proportion, c(`DPG`))
+  
+  library(scales)
+  # expect a warning about rows with missing values being removed
+  ggplot(freq04, aes(x = proportion, y = `DEA`,
+                        color = abs(`DEA` - proportion))) +
+    geom_abline(color = "gray40", lty = 2) +
+    geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
+    geom_text(aes(label = palavra), check_overlap = TRUE, vjust = 1.5) +
+    scale_x_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
+    scale_y_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
+    scale_color_gradient(limits = c(0, 0.001),
+                         low = "darkslategray4", high = "gray75") +
+    facet_wrap(~DIRETORIA, ncol = 1) +
+    theme(legend.position="none") +
+    labs(y = "DEA", x = NULL)
+```
+
+```yaml
+Warning messages:
+1: Removed 4221 rows containing missing values (geom_point). 
+2: Removed 4222 rows containing missing values (geom_text).
+```
+
+- DEA X DGC
+```{r}
+freq05 <- PROP_PALAVRA %>%
+    gather(DIRETORIA, proportion, c(`DGC`))
+  
+  library(scales)
+  # expect a warning about rows with missing values being removed
+  ggplot(freq05, aes(x = proportion, y = `DEA`,
+                        color = abs(`DEA` - proportion))) +
+    geom_abline(color = "gray40", lty = 2) +
+    geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
+    geom_text(aes(label = palavra), check_overlap = TRUE, vjust = 1.5) +
+    scale_x_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
+    scale_y_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
+    scale_color_gradient(limits = c(0, 0.001),
+                         low = "darkslategray4", high = "gray75") +
+    facet_wrap(~DIRETORIA, ncol = 1) +
+    theme(legend.position="none") +
+    labs(y = "DEA", x = NULL)
+```
+
+```yaml
+Warning messages:
+1: Removed 3812 rows containing missing values (geom_point). 
+2: Removed 3813 rows containing missing values (geom_text).
+```
+
+- DEA X OUTROS
+```{r}
+freq06 <- PROP_PALAVRA %>%
+    gather(DIRETORIA, proportion, c(`OUTROS`))
+  
+  library(scales)
+  # expect a warning about rows with missing values being removed
+  ggplot(freq06, aes(x = proportion, y = `DEA`,
+                        color = abs(`DEA` - proportion))) +
+    geom_abline(color = "gray40", lty = 2) +
+    geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
+    geom_text(aes(label = palavra), check_overlap = TRUE, vjust = 1.5) +
+    scale_x_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
+    scale_y_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
+    scale_color_gradient(limits = c(0, 0.001),
+                         low = "darkslategray4", high = "gray75") +
+    facet_wrap(~DIRETORIA, ncol = 1) +
+    theme(legend.position="none") +
+    labs(y = "DEA", x = NULL)
+```
+
+```yaml
+Warning messages:
+1: Removed 4303 rows containing missing values (geom_point). 
+2: Removed 4304 rows containing missing values (geom_text). 
+```
+
+- DPG X DGC
+```{r}
+freq07 <- PROP_PALAVRA %>%
+    gather(DIRETORIA, proportion, c(`DGC`))
+  
+  library(scales)
+  # expect a warning about rows with missing values being removed
+  ggplot(freq07, aes(x = proportion, y = `DPG`,
+                        color = abs(`DPG` - proportion))) +
+    geom_abline(color = "gray40", lty = 2) +
+    geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
+    geom_text(aes(label = palavra), check_overlap = TRUE, vjust = 1.5) +
+    scale_x_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
+    scale_y_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
+    scale_color_gradient(limits = c(0, 0.001),
+                         low = "darkslategray4", high = "gray75") +
+    facet_wrap(~DIRETORIA, ncol = 1) +
+    theme(legend.position="none") +
+    labs(y = "DPG", x = NULL)
+```
+
+```yaml
+Warning messages:
+1: Removed 4296 rows containing missing values (geom_point). 
+2: Removed 4297 rows containing missing values (geom_text). 
+```
+
+
+- DPG X OUTROS
+```{r}
+freq08 <- PROP_PALAVRA %>%
+    gather(DIRETORIA, proportion, c(`OUTROS`))
+  
+  library(scales)
+  # expect a warning about rows with missing values being removed
+  ggplot(freq08, aes(x = proportion, y = `DPG`,
+                        color = abs(`DPG` - proportion))) +
+    geom_abline(color = "gray40", lty = 2) +
+    geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
+    geom_text(aes(label = palavra), check_overlap = TRUE, vjust = 1.5) +
+    scale_x_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
+    scale_y_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
+    scale_color_gradient(limits = c(0, 0.001),
+                         low = "darkslategray4", high = "gray75") +
+    facet_wrap(~DIRETORIA, ncol = 1) +
+    theme(legend.position="none") +
+    labs(y = "DPG", x = NULL)
+```
+
+```yaml
+Warning messages:
+1: Removed 4450 rows containing missing values (geom_point). 
+2: Removed 4451 rows containing missing values (geom_text). 
+```
+
+- DPG X OUTROS
+```{r}
+freq09 <- PROP_PALAVRA %>%
+    gather(DIRETORIA, proportion, c(`OUTROS`))
+  
+  library(scales)
+  # expect a warning about rows with missing values being removed
+  ggplot(freq08, aes(x = proportion, y = `DGC`,
+                        color = abs(`DGC` - proportion))) +
+    geom_abline(color = "gray40", lty = 2) +
+    geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
+    geom_text(aes(label = palavra), check_overlap = TRUE, vjust = 1.5) +
+    scale_x_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
+    scale_y_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
+    scale_color_gradient(limits = c(0, 0.001),
+                         low = "darkslategray4", high = "gray75") +
+    facet_wrap(~DIRETORIA, ncol = 1) +
+    theme(legend.position="none") +
+    labs(y = "DGC", x = NULL)
+```
+
+```yaml
+Warning messages:
+1: Removed 4302 rows containing missing values (geom_point). 
+2: Removed 4303 rows containing missing values (geom_text).
+```
+
+<!--
+```yaml
+DEE <- diretoria_palavras %>%
+  filter(DIRETORIA == "DEE")
+
+DEA <- diretoria_palavras %>%
+  filter(DIRETORIA == "DEA")
+
+DPG <- diretoria_palavras %>%
+  filter(DIRETORIA == "DPG")
+
+DGC <- diretoria_palavras %>%
+  filter(DIRETORIA == "DGC")
+
+OUTROS <- diretoria_palavras %>%
+  filter(DIRETORIA == "OUTROS")
+
+library(tidyr)
+  freq01 <- bind_rows(mutate(DEE, DIRETORIA = "DEE"),
+                         mutate(DEA, DIRETORIA = "DEA"),
+                         mutate(DPG, DIRETORIA = "DPG"),
+                         mutate(DGC, DIRETORIA = "DGC"),
+                         mutate(OUTROS, DIRETORIA = "OUTROS")) %>%
+    mutate(palavra = str_extract(palavra, "[a-z']+")) %>%
+    count(DIRETORIA, palavra) %>%
+    group_by(DIRETORIA) %>%
+    mutate(proportion = n / sum(n)) %>%
+    select(-n) %>%
+    spread(DIRETORIA, proportion) %>%
+    gather(DIRETORIA, proportion, c(`DEE`,`DEA`,`DPG`,`DGC`))
+  
+  library(scales)
+  # expect a warning about rows with missing values being removed
+  ggplot(freq01, aes(x = proportion, y = `OUTROS`,
+                        color = abs(`OUTROS` - proportion))) +
+    geom_abline(color = "gray40", lty = 2) +
+    geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
+    geom_text(aes(label = palavra), check_overlap = TRUE, vjust = 1.5) +
+    scale_x_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
+    scale_y_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
+    scale_color_gradient(limits = c(0, 0.001),
+                         low = "darkslategray4", high = "gray75") +
+    facet_wrap(~DIRETORIA, ncol = 4) +
+    theme(legend.position="none") +
+    labs(y = "OUTROS", x = NULL)
+```
+-->
+
+
+
+- Zipf's law
+```{r}
+freq_by_rank <- diretoria_palavras %>%
+group_by(DIRETORIA) %>%
+mutate(ranque = row_number(),
+`frequência de termos` = n/total_palavras)
+
+# Plot
+freq_by_rank %>%
+ggplot(aes(ranque, `frequência de termos`, color = DIRETORIA)) +
+geom_abline(intercept = -0.62, slope = -1.1, color = "gray50", linetype = 2) +
+geom_line(size = 1.1, alpha = 0.8, show.legend = TRUE) +
+scale_x_log10(labels=gcomma) +
+scale_y_log10(labels=gcomma)
+```
+
+
+#### Frequência de palavras por diretoria
+```{r 02_freq_palavras_dir, fig.width=9, fig.height=7}
+diretoria_palavras <- DB %>%
+  unnest_tokens(palavra, DESCRI_PEDIDO) %>%
+  count(DIRETORIA, palavra, sort = TRUE) %>%
+  ungroup()
+#diretoria_palavras
+
+plot_diretoria_palavras <- diretoria_palavras %>%
+  bind_tf_idf(palavra, DIRETORIA, n) %>%
+  arrange(desc(tf_idf)) %>%
+  mutate(palavra = factor(palavra, levels = rev(unique(palavra)))) %>%
+  mutate(DIRETORIA = factor(DIRETORIA, levels = c("DEA",
+                                                  "DEE",
+                                                  "DGC",
+                                                  "DPG",
+                                                  "OUTROS")))
+#View(head(plot_diretoria_palavras))
+#jpeg("02_freq_palavras_dir.jpeg")
+plot_diretoria_palavras %>%
+group_by(DIRETORIA) %>%
+top_n(10, tf_idf) %>%
+ungroup() %>%
+mutate(palavra = reorder(palavra, tf_idf)) %>%
+ggplot(aes(palavra, tf_idf, fill = DIRETORIA)) +
+geom_col(show.legend = FALSE) +
+labs(x = NULL, y = "tf-idf") +
+facet_wrap(~DIRETORIA, ncol = 2, scales = "free") +
+coord_flip() + 
+scale_y_continuous(labels=gcomma)
+#dev.off()
+```
+
+#### Filtrando um pedaço de texto
+```{r}
+DB %>%
+filter(str_detect(DESCRI_PEDIDO, "r0")) %>%
+select(DESCRI_PEDIDO) %>%
+  head()
+```
+
+Uma limpeza removendo palavras sem significado semântico (**stopwords**) pode auxiliar o algoritmo a retornar palavras ainda mais acertivas
+
+
+### Radicais
+Podemos diminuir redundâncias por parte do algoritmo ensinando-o a compreender palavras que podem estar escritas de forma diferente mas que em significado semântico são semelhantes. Para isso, analisamos o radical de palavras com um mesmo prefixo mas com sufixos diferentes seja por quisistos como gênero ou plural.
+
+Exemplos:
+
+leilão $\propto$ leilões
+estado $\propto$ estados
+região $\propto$ regiões
+
+`Falta implementar`
+
+
+### Stopwords
+Com o arquivo de `stopwords`previamente inserido vamos, primeiramente, transforma-lo em um data_frame a fim de futuramente utilizá-lo para extrair do texto palavras em comum.
+
+#### Freq. de palavras sem **stopwords** por diretoria
+```{r}
+mystopwords <- data_frame(palavra = stopwords_pt)
+diretoria_palavras_noSTOP <- anti_join(diretoria_palavras, mystopwords, by = "palavra")
+#View(head(diretoria_palavras_noSTOP))
+```
+
+```{r 03_freq_palavras_dir_nostop, fig.width=9, fig.height=7}
+#diretoria_palavras_noSTOP_noSTOP
+plot_diretoria_palavras_noSTOP <- diretoria_palavras_noSTOP %>%
+  bind_tf_idf(palavra, DIRETORIA, n) %>%
+  arrange(desc(tf_idf)) %>%
+  mutate(word = factor(palavra, levels = rev(unique(palavra)))) %>%
+  mutate(DIRETORIA = factor(DIRETORIA, levels = c("DEA",
+                                                  "DEE",
+                                                  "DGC",
+                                                  "DPG",
+                                                  "OUTROS")))
+#plot_diretoria_palavras_noSTOP
+#windows.options(width=10, height=10)
+#jpeg("03_freq_palavras_dir_nostop.jpeg")
+plot_diretoria_palavras_noSTOP %>%
+group_by(DIRETORIA) %>%
+top_n(10, tf_idf) %>%
+ungroup() %>%
+mutate(palavra = reorder(palavra, tf_idf)) %>%
+ggplot(aes(palavra, tf_idf, fill = DIRETORIA)) +
+geom_col(show.legend = FALSE) +
+labs(x = NULL, y = "tf-idf") +
+facet_wrap(~DIRETORIA, ncol = 2, scales = "free") +
+coord_flip() + 
+scale_y_continuous(labels=gcomma)
+#dev.off()
+```
+
+
+### Usando bigram para n=2 palavras por token
+#### Frequência de palavras por diretoria
+```{r 03_freq_palavras_dir, fig.width=9, fig.height=7}
+diretoria_palavras_bigram <- DB %>%
+  select(DESCRI_PEDIDO,DIRETORIA) %>%
+  unnest_tokens(BIGRAM, DESCRI_PEDIDO, token = "ngrams", n = 2) %>%
+  count(DIRETORIA, BIGRAM, sort = TRUE) %>%
+  ungroup()
+#diretoria_palavras_bigram
+
+plot_diretoria_palavras_bigram <- diretoria_palavras_bigram %>%
+  bind_tf_idf(BIGRAM, DIRETORIA, n) %>%
+  arrange(desc(tf_idf)) %>%
+  mutate(BIGRAM = factor(BIGRAM, levels = rev(unique(BIGRAM)))) %>%
+  mutate(DIRETORIA = factor(DIRETORIA, levels = c("DEA",
+                                                  "DEE",
+                                                  "DGC",
+                                                  "DPG",
+                                                  "OUTROS")))
+#View(head(plot_diretoria_palavras_bigram))
+#jpeg("02_freq_palavras_dir.jpeg")
+plot_diretoria_palavras_bigram %>%
+group_by(DIRETORIA) %>%
+top_n(10, tf_idf) %>%
+ungroup() %>%
+mutate(BIGRAM = reorder(BIGRAM, tf_idf)) %>%
+ggplot(aes(BIGRAM, tf_idf, fill = DIRETORIA)) +
+geom_col(show.legend = FALSE) +
+labs(x = NULL, y = "tf-idf") +
+facet_wrap(~DIRETORIA, ncol = 2, scales = "free") +
+coord_flip() + 
+scale_y_continuous(labels=gcomma)
+#dev.off()
+```
+
+### Usando bigram para n=3 palavras por token
+#### Frequência de palavras por diretoria
+```{r 04_freq_palavras_dir, fig.width=9, fig.height=7}
+diretoria_palavras_trigram <- DB %>%
+  select(DESCRI_PEDIDO,DIRETORIA) %>%
+  unnest_tokens(TRIGRAM, DESCRI_PEDIDO, token = "ngrams", n = 3) %>%
+  count(DIRETORIA, TRIGRAM, sort = TRUE) %>%
+  ungroup()
+#diretoria_palavras_trigram
+
+plot_diretoria_palavras_trigram <- diretoria_palavras_trigram %>%
+  bind_tf_idf(TRIGRAM, DIRETORIA, n) %>%
+  arrange(desc(tf_idf)) %>%
+  mutate(TRIGRAM = factor(TRIGRAM, levels = rev(unique(TRIGRAM)))) %>%
+  mutate(DIRETORIA = factor(DIRETORIA, levels = c("DEA",
+                                                  "DEE",
+                                                  "DGC",
+                                                  "DPG",
+                                                  "OUTROS")))
+#View(head(plot_diretoria_palavras_trigram))
+#jpeg("02_freq_palavras_dir.jpeg")
+plot_diretoria_palavras_trigram %>%
+group_by(DIRETORIA) %>%
+top_n(10, tf_idf) %>%
+ungroup() %>%
+mutate(TRIGRAM = reorder(TRIGRAM, tf_idf)) %>%
+ggplot(aes(TRIGRAM, tf_idf, fill = DIRETORIA)) +
+geom_col(show.legend = FALSE) +
+labs(x = NULL, y = "tf-idf") +
+facet_wrap(~DIRETORIA, ncol = 2, scales = "free") +
+coord_flip() + 
+scale_y_continuous(labels=gcomma)
+#dev.off()
+```
+
+## tidy object into document-term matrix
+
+```{r}
+plot_diretoria_palavras <- diretoria_palavras %>%
+  bind_tf_idf(palavra, DIRETORIA, n) %>%
+  arrange(desc(tf_idf)) %>%
+  mutate(palavra = factor(palavra, levels = rev(unique(palavra)))) %>%
+  mutate(DIRETORIA = factor(DIRETORIA, levels = c("DEA",
+                                                  "DEE",
+                                                  "DGC",
+                                                  "DPG",
+                                                  "OUTROS")))
+
+dtm = plot_diretoria_palavras %>%
+cast_dtm(document = DIRETORIA, term = palavra, n)
+```
+
+
+
+### Nuvem de palavras 
+
+#### Nuvem de palavras por diretoria - s/ steeming e/ c/ stopwords - onegram
+```{r, message=FALSE, warning=FALSE}
+#View(head(plot_diretoria_palavras))
+library(wordcloud)
+plot_diretorias_tf_dif = plot_diretoria_palavras %>%
+    select(palavra, tf_idf, DIRETORIA) %>%
+    mutate(palavra = reorder(palavra, tf_idf))
+
+## DEE
+#jpeg("XX_wordclou_tfidf_dir01_DEE.jpeg")
+nuvem1 = 
+plot_diretorias_tf_dif %>%
+  filter(DIRETORIA == "DEE") %>%
+  select(-DIRETORIA, word = palavra,freq = tf_idf) %>%
+  #top_n(150, freq) %>%
+  as.data.frame() 
+
+set.seed(231321)
+wordcloud(words = nuvem1$word, freq = nuvem1$freq, min.freq = 0.2,
+          max.words=250, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(10, "Dark2"))
+
+## DGC
+#jpeg("XX_wordclou_tfidf_dir02_DGC.jpeg")
+nuvem2 = 
+plot_diretorias_tf_dif %>%
+  filter(DIRETORIA == "DGC") %>%
+  select(-DIRETORIA, word = palavra,freq = tf_idf) %>%
+  #top_n(150, freq) %>%
+  as.data.frame() 
+
+set.seed(75437)
+wordcloud(words = nuvem2$word, freq = nuvem2$freq, min.freq = 0.2,
+          max.words=250, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(10, "Dark2"))
+
+## DEA
+#jpeg("XX_wordclou_tfidf_dir03_DEA.jpeg")
+nuvem3 = 
+plot_diretorias_tf_dif %>%
+  filter(DIRETORIA == "DEA") %>%
+  select(-DIRETORIA, word = palavra,freq = tf_idf) %>%
+  #top_n(150, freq) %>%
+  as.data.frame() 
+
+set.seed(231321)
+wordcloud(words = nuvem3$word, freq = nuvem3$freq, min.freq = 0.2,
+          max.words=250, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(10, "Dark2"))
+
+## DPG
+#jpeg("XX_wordclou_tfidf_dir04_DPG.jpeg")
+nuvem4 = 
+plot_diretorias_tf_dif %>%
+  filter(DIRETORIA == "DPG") %>%
+  select(-DIRETORIA, word = palavra,freq = tf_idf) %>%
+  #top_n(150, freq) %>%
+  as.data.frame() 
+
+set.seed(75437)
+wordcloud(words = nuvem4$word, freq = nuvem4$freq, min.freq = 0.1,
+          max.words=250, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(10, "Dark2"))
+
+## OUTROS
+#jpeg("XX_wordclou_tfidf_dir05_OUTROS.jpeg")
+nuvem5 = 
+plot_diretorias_tf_dif %>%
+  filter(DIRETORIA == "OUTROS") %>%
+  select(-DIRETORIA, word = palavra,freq = tf_idf) %>%
+  #top_n(150, freq) %>%
+  as.data.frame() 
+
+set.seed(75437)
+wordcloud(words = nuvem5$word, freq = nuvem5$freq, min.freq = 0.1,
+          max.words=250, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(10, "Dark2"))
+```
+
+
+```yaml
+#View(head(plot_diretoria_palavras))
+library(wordcloud2)
+
+plot_diretorias_tf_dif = plot_diretoria_palavras %>%
+    select(palavra, tf_idf, DIRETORIA) %>%
+    mutate(palavra = reorder(palavra, tf_idf))
+
+## DEE
+#jpeg("XX_wordclou_tfidf_dir01_DEE.jpeg")
+set.seed(233115)
+plot_diretorias_tf_dif %>%
+  filter(DIRETORIA == "DEE") %>%
+  top_n(150, tf_idf) %>%
+  wordcloud2(shuffle = TRUE, 
+             color = "random-dark",
+             shape = "circle")
+
+## DGC
+#jpeg("XX_wordclou_tfidf_dir01_DGC.jpeg")
+set.seed(233115)
+plot_diretorias_tf_dif %>%
+  filter(DIRETORIA == "DGC") %>%
+  top_n(150, tf_idf) %>%
+  wordcloud2()
+
+## DEA
+#jpeg("XX_wordclou_tfidf_dir01_DEA.jpeg")
+set.seed(233115)
+plot_diretorias_tf_dif %>%
+  filter(DIRETORIA == "DEA") %>%
+  top_n(150, tf_idf) %>%
+  wordcloud2()
+
+## DPG
+#jpeg("XX_wordclou_tfidf_dir04_DPG.jpeg")
+set.seed(233115)
+plot_diretorias_tf_dif %>%
+  filter(DIRETORIA == "DPG") %>%
+  top_n(150, tf_idf) %>%
+  wordcloud2()
+  
+## OUTROS
+#jpeg("XX_wordclou_tfidf_dir01_OUTROS.jpeg")
+set.seed(233115)
+plot_diretorias_tf_dif %>%
+  filter(DIRETORIA == "OUTROS") %>%
+  top_n(150, tf_idf) %>%
+  wordcloud2()
+```
+-->
+
+#### Nuvem de palavras por diretoria - s/ steeming e/ou remoção de stopwords - bigram
+
+```{r}
+plot_diretorias_tf_dif_bigram = DB %>%
+  select(DESCRI_PEDIDO,DIRETORIA) %>%
+  unnest_tokens(BIGRAM, DESCRI_PEDIDO, token = "ngrams", n = 2) %>%
+  count(DIRETORIA, BIGRAM, sort = TRUE) %>%
+  bind_tf_idf(BIGRAM, DIRETORIA, n) %>%
+  arrange(desc(tf_idf)) %>%
+  mutate(BIGRAM = factor(BIGRAM, levels = rev(unique(BIGRAM)))) %>%
+  mutate(DIRETORIA = factor(DIRETORIA,levels=c("DEA","DEE","DGC","DPG","OUTROS"))) %>%
+  select(BIGRAM, tf_idf, DIRETORIA)
+```
+
+
+```{r wordcloud_onegram_DIR01_semstopwords, warning=FALSE, message=FALSE}
+## DEE
+#jpeg("XX_wordclou_tfidf_dir01_DEE.jpeg")
+nuvem1.2 = 
+plot_diretorias_tf_dif_bigram %>%
+  filter(DIRETORIA == "DEE") %>%
+  select(-DIRETORIA, word = BIGRAM,freq = tf_idf) %>%
+  #top_n(150, freq) %>%
+  as.data.frame() 
+
+set.seed(231321)
+wordcloud(words = nuvem1.2$word, freq = nuvem1.2$freq, min.freq = 0.2,
+          max.words=250, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(10, "Dark2"))
+```
+
+```{r wordcloud_onegram_DIR02_semstopwords, warning=FALSE, message=FALSE}
+## DGC
+#jpeg("XX_wordclou_tfidf_dir02_DGC.jpeg")
+nuvem2.2 = 
+plot_diretorias_tf_dif_bigram %>%
+  filter(DIRETORIA == "DGC") %>%
+  select(-DIRETORIA, word = BIGRAM,freq = tf_idf) %>%
+  #top_n(150, freq) %>%
+  as.data.frame() 
+
+set.seed(75437)
+wordcloud(words = nuvem2.2$word, freq = nuvem2.2$freq, min.freq = 0.2,
+          max.words=250, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(10, "Dark2"))
+```
+
+```{r wordcloud_onegram_DIR03_semstopwords, warning=FALSE, message=FALSE}
+## DEA
+#jpeg("XX_wordclou_tfidf_dir03_DEA.jpeg")
+nuvem3.2 = 
+plot_diretorias_tf_dif_bigram %>%
+  filter(DIRETORIA == "DEA") %>%
+  select(-DIRETORIA, word = BIGRAM,freq = tf_idf) %>%
+  #top_n(150, freq) %>%
+  as.data.frame() 
+
+set.seed(543453)
+wordcloud(words = nuvem3.2$word, freq = nuvem3.2$freq, min.freq = 0.2,
+          max.words=250, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(10, "Dark2"))
+```
+
+```{r wordcloud_onegram_DIR04_semstopwords, warning=FALSE, message=FALSE}
+## DPG
+#jpeg("XX_wordclou_tfidf_dir04_DPG.jpeg")
+nuvem4.2 = 
+plot_diretorias_tf_dif_bigram %>%
+  filter(DIRETORIA == "DPG") %>%
+  select(-DIRETORIA, word = BIGRAM,freq = tf_idf) %>%
+  #top_n(150, freq) %>%
+  as.data.frame() 
+
+set.seed(75437)
+wordcloud(words = nuvem4.2$word, freq = nuvem4.2$freq, min.freq = 0.1,
+          max.words=250, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(10, "Dark2"))
+```
+
+```{r wordcloud_onegram_DIR05_semstopwords, warning=FALSE, message=FALSE}
+## OUTROS
+#jpeg("XX_wordclou_tfidf_dir05_OUTROS.jpeg")
+nuvem5.2 = 
+plot_diretorias_tf_dif_bigram %>%
+  filter(DIRETORIA == "OUTROS") %>%
+  select(-DIRETORIA, word = BIGRAM,freq = tf_idf) %>%
+  #top_n(150, freq) %>%
+  as.data.frame() 
+
+set.seed(75437)
+wordcloud(words = nuvem5.2$word, freq = nuvem5.2$freq, min.freq = 0.1,
+          max.words=250, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(10, "Dark2"))
+```
+
+
+
+```yaml
+#View(head(plot_diretoria_palavras))
+library(wordcloud2)
+
+plot_diretorias_tf_dif_bigram = DB %>%
+  select(DESCRI_PEDIDO,DIRETORIA) %>%
+  unnest_tokens(BIGRAM, DESCRI_PEDIDO, token = "ngrams", n = 2) %>%
+  count(DIRETORIA, BIGRAM, sort = TRUE) %>%
+  bind_tf_idf(BIGRAM, DIRETORIA, n) %>%
+  arrange(desc(tf_idf)) %>%
+  mutate(BIGRAM = factor(BIGRAM, levels = rev(unique(BIGRAM)))) %>%
+  mutate(DIRETORIA = factor(DIRETORIA,levels=c("DEA","DEE","DGC","DPG","OUTROS"))) %>%
+  select(BIGRAM, tf_idf, DIRETORIA)
+  
+
+## DEE
+#jpeg("XX_wordclou_tfidf_dir01_DEE.jpeg")
+set.seed(233115)
+plot_diretorias_tf_dif_bigram %>%
+  filter(DIRETORIA == "DEE") %>%
+  top_n(150, tf_idf) %>%
+  wordcloud2(shuffle = TRUE, 
+             color = "random-dark",
+             shape = "circle")
+
+## DGC
+#jpeg("XX_wordclou_tfidf_dir01_DGC.jpeg")
+set.seed(233115)
+plot_diretorias_tf_dif_bigram %>%
+  filter(DIRETORIA == "DGC") %>%
+  top_n(150, tf_idf) %>%
+  wordcloud2()
+
+## DEA
+#jpeg("XX_wordclou_tfidf_dir01_DEA.jpeg")
+set.seed(233115)
+plot_diretorias_tf_dif_bigram %>%
+  filter(DIRETORIA == "DEA") %>%
+  top_n(150, tf_idf) %>%
+  wordcloud2()
+
+## DPG
+#jpeg("XX_wordclou_tfidf_dir01_DPG.jpeg")
+set.seed(233115)
+plot_diretorias_tf_dif_bigram %>%
+  filter(DIRETORIA == "DPG") %>%
+  top_n(150, tf_idf) %>%
+  wordcloud2()
+```
+
+
+##### Separando palavras de um bigram em "palavra1" e "palavra2" p/ remover stopwords
+
+Considerando já a exclusão de casos onde houver stopwords consecultivos na "palavra1" e "palavra2", ou seja onde $palavra1=stopword \land palavra2=stopword$ 
+
+```{r}
+bigrams = DB %>%
+  select(DESCRI_PEDIDO,DIRETORIA) %>%
+  unnest_tokens(BIGRAM, DESCRI_PEDIDO, token = "ngrams", n = 2) %>%
+  count(DIRETORIA, BIGRAM, sort = TRUE) 
+
+separa_bigrams = bigrams %>%
+  separate(BIGRAM, c("palavra1", "palavra2"), sep = " ")
+
+junta_bigrams = separa_bigrams %>%
+  unite(BIGRAM, palavra1, palavra2, sep = " ")
+# levels(as.factor(junta_bigrams$BIGRAM == bigrams$BIGRAM))   # CHECK
+
+## remove stopwords  
+bigrams2 = cbind(separa_bigrams,BIGRAM = junta_bigrams$BIGRAM) %>%
+  filter(!palavra1 %in% mystopwords$palavra) %>%
+  filter(!palavra2 %in% mystopwords$palavra) %>%  
+  filter(!palavra1 %in% "a") %>%
+  filter(!palavra2 %in% "a") %>%
+  filter(!palavra1 %in% "p") %>%
+  filter(!palavra1 %in% "s") %>%
+  filter(!palavra1 %in% "d") %>%
+  filter(!palavra2 %in% "p") %>%
+  filter(!palavra2 %in% "s") %>%
+  filter(!palavra2 %in% "d") %>%
+  filter(!palavra2 %in% "s.a") %>%
+  filter(!str_detect(palavra1, "0")) %>%
+  filter(!str_detect(palavra1, "1")) %>%
+  filter(!str_detect(palavra1, "2")) %>%
+  filter(!str_detect(palavra1, "3")) %>%
+  filter(!str_detect(palavra1, "4")) %>%
+  filter(!str_detect(palavra1, "5")) %>%
+  filter(!str_detect(palavra1, "6")) %>%
+  filter(!str_detect(palavra1, "7")) %>%
+  filter(!str_detect(palavra1, "8")) %>%
+  filter(!str_detect(palavra1, "9")) %>%
+  filter(!str_detect(palavra2, "0")) %>%
+  filter(!str_detect(palavra2, "1")) %>%
+  filter(!str_detect(palavra2, "2")) %>%
+  filter(!str_detect(palavra2, "3")) %>%
+  filter(!str_detect(palavra2, "4")) %>%
+  filter(!str_detect(palavra2, "5")) %>%
+  filter(!str_detect(palavra2, "6")) %>%
+  filter(!str_detect(palavra2, "7")) %>%
+  filter(!str_detect(palavra2, "8")) %>%
+  filter(!str_detect(palavra2, "9"))
+  #count(DIRETORIA, BIGRAM) 
+```
+
+
+#### Nuvem de palavras por diretoria - s/ steeming c/ remoção de stopwords - bigram
+
+```{r, warning=FALSE, message=FALSE}
+#View(head(plot_diretoria_palavras))
+library(wordcloud2)
+library(wordcloud)
+plot_diretorias_tf_dif_bigram2 = bigrams2 %>%
+  select(BIGRAM,n,DIRETORIA) %>%
+  bind_tf_idf(BIGRAM, DIRETORIA, n) %>%
+  arrange(desc(tf_idf)) %>%
+  mutate(BIGRAM = factor(BIGRAM, levels = rev(unique(BIGRAM)))) %>%
+  mutate(DIRETORIA = factor(DIRETORIA,levels=c("DEA","DEE","DGC","DPG","OUTROS"))) %>%
+  select(BIGRAM, tf_idf, DIRETORIA)
+```
+
+```{r wordcloud_bigram_DIR01_semstopwords, warning=FALSE, message=FALSE}
+## DEE
+#jpeg("XX_wordclou_tfidf_dir01_DEE.jpeg")
+nuvem1.2 = 
+plot_diretorias_tf_dif_bigram2 %>%
+  filter(DIRETORIA == "DEE") %>%
+  select(-DIRETORIA, word = BIGRAM,freq = tf_idf) %>%
+  #top_n(150, freq) %>%
+  as.data.frame() 
+
+set.seed(231321)
+wordcloud(words = nuvem1.2$word, freq = nuvem1.2$freq, min.freq = 0.2,
+          max.words=250, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(10, "Dark2"))
+```
+
+```{r wordcloud_bigram_DIR02_semstopwords, warning=FALSE, message=FALSE}
+## DGC
+#jpeg("XX_wordclou_tfidf_dir02_DGC.jpeg")
+nuvem2.2 = 
+plot_diretorias_tf_dif_bigram2 %>%
+  filter(DIRETORIA == "DGC") %>%
+  select(-DIRETORIA, word = BIGRAM,freq = tf_idf) %>%
+  #top_n(150, freq) %>%
+  as.data.frame() 
+
+set.seed(95654)
+wordcloud(words = nuvem2.2$word, freq = nuvem2.2$freq,
+          max.words=250, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(10, "Dark2"))
+```
+
+```{r wordcloud_bigram_DIR03_semstopwords, warning=FALSE, message=FALSE}
+## DEA
+#jpeg("XX_wordclou_tfidf_dir03_DEA.jpeg")
+nuvem3.2 = 
+plot_diretorias_tf_dif_bigram2 %>%
+  filter(DIRETORIA == "DEA") %>%
+  select(-DIRETORIA, word = BIGRAM,freq = tf_idf) %>%
+  #top_n(150, freq) %>%
+  as.data.frame() 
+
+set.seed(543453)
+wordcloud(words = nuvem3.2$word, freq = nuvem3.2$freq,
+          max.words=250, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(10, "Dark2"))
+```
+
+```{r wordcloud_bigram_DIR04_semstopwords, warning=FALSE, message=FALSE}
+## DPG
+#jpeg("XX_wordclou_tfidf_dir04_DPG.jpeg")
+nuvem4.2 = 
+plot_diretorias_tf_dif_bigram2 %>%
+  filter(DIRETORIA == "DPG") %>%
+  select(-DIRETORIA, word = BIGRAM,freq = tf_idf) %>%
+  #top_n(150, freq) %>%
+  as.data.frame() 
+
+set.seed(75437)
+wordcloud(words = nuvem4.2$word, freq = nuvem4.2$freq, min.freq = 0.1,
+          max.words=250, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(10, "Dark2"))
+```
+
+```{r wordcloud_bigram_DIR05_semstopwords, warning=FALSE, message=FALSE}
+## OUTROS
+#jpeg("XX_wordclou_tfidf_dir05_OUTROS.jpeg")
+nuvem5.2 = 
+plot_diretorias_tf_dif_bigram2 %>%
+  filter(DIRETORIA == "OUTROS") %>%
+  select(-DIRETORIA, word = BIGRAM,freq = tf_idf) %>%
+  #top_n(150, freq) %>%
+  as.data.frame() 
+
+set.seed(75437)
+wordcloud(words = nuvem5.2$word, freq = nuvem5.2$freq, min.freq = 0.1,
+          max.words=250, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(10, "Dark2"))
+```
+
+
+
+
+
+```yaml
+#View(head(plot_diretoria_palavras))
+library(wordcloud2)
+
+plot_diretorias_tf_dif_bigram2 = bigrams2 %>%
+  select(BIGRAM,n,DIRETORIA) %>%
+  bind_tf_idf(BIGRAM, DIRETORIA, n) %>%
+  arrange(desc(tf_idf)) %>%
+  mutate(BIGRAM = factor(BIGRAM, levels = rev(unique(BIGRAM)))) %>%
+  mutate(DIRETORIA = factor(DIRETORIA,levels=c("DEA","DEE","DGC","DPG","OUTROS"))) %>%
+  select(BIGRAM, tf_idf, DIRETORIA)
+  
+
+## DEE
+#jpeg("XX_wordclou_tfidf_dir01_DEE.jpeg")
+set.seed(233115)
+plot_diretorias_tf_dif_bigram2 %>%
+  filter(DIRETORIA == "DEE") %>%
+  top_n(150, tf_idf) %>%
+  wordcloud2(shuffle = TRUE, 
+             color = "random-dark",
+             shape = "circle")
+
+## DGC
+#jpeg("XX_wordclou_tfidf_dir02_DGC.jpeg")
+set.seed(233115)
+plot_diretorias_tf_dif_bigram2 %>%
+  filter(DIRETORIA == "DGC") %>%
+  top_n(150, tf_idf) %>%
+  wordcloud2()
+
+## DEA
+#jpeg("XX_wordclou_tfidf_dir03_DEA.jpeg")
+set.seed(233115)
+plot_diretorias_tf_dif_bigram2 %>%
+  filter(DIRETORIA == "DEA") %>%
+  top_n(150, tf_idf) %>%
+  wordcloud2()
+
+## DPG
+#jpeg("XX_wordclou_tfidf_dir04_DPG.jpeg")
+set.seed(233115)
+plot_diretorias_tf_dif_bigram2 %>%
+  filter(DIRETORIA == "DPG") %>%
+  top_n(150, tf_idf) %>%
+  wordcloud2()
+
+## OUTROS
+#jpeg("XX_wordclou_tfidf_dir05_OUTROS.jpeg")
+set.seed(233115)
+plot_diretorias_tf_dif_bigram2 %>%
+  filter(DIRETORIA == "OUTROS") %>%
+  top_n(150, tf_idf) %>%
+  wordcloud2()
+```
+
+
+
+
+#### Gráfico da estatística tf_idf c/ remoção de stopwords
+```{r}
+plot_diretorias_tf_dif_bigram2 %>%
+group_by(DIRETORIA) %>%
+top_n(10, tf_idf) %>%
+ungroup() %>%
+mutate(BIGRAM = reorder(BIGRAM, tf_idf)) %>%
+ggplot(aes(BIGRAM, tf_idf, fill = DIRETORIA)) +
+geom_col(show.legend = FALSE) +
+labs(x = NULL, y = "tf-idf") +
+facet_wrap(~DIRETORIA, ncol = 2, scales = "free") +
+coord_flip() + 
+scale_y_continuous(labels=gcomma)
+```
+
+
+#### Nuvem de palavras por diretoria - s/ steeming e/ou stopwords - trigram
+
+```{r}
+#View(head(plot_diretoria_palavras))
+library(wordcloud)
+plot_diretorias_tf_dif_trigram = DB %>%
+  select(DESCRI_PEDIDO,DIRETORIA) %>%
+  unnest_tokens(TRIGRAM, DESCRI_PEDIDO, token = "ngrams", n = 3) %>%
+  count(DIRETORIA, TRIGRAM, sort = TRUE) %>%
+  bind_tf_idf(TRIGRAM, DIRETORIA, n) %>%
+  arrange(desc(tf_idf)) %>%
+  mutate(TRIGRAM = factor(TRIGRAM, levels = rev(unique(TRIGRAM)))) %>%
+  mutate(DIRETORIA = factor(DIRETORIA,levels=c("DEA","DEE","DGC","DPG","OUTROS"))) %>%
+  select(TRIGRAM, tf_idf, DIRETORIA)
+```
+
+
+```{r wordcloud_trigram_DIR01_comstopwords, warning=FALSE, message=FALSE}
+## DEE
+#jpeg("wordcloud_tfidf_dir01_DEE_trigram_comstop_semstemming.jpeg")
+nuvem1.3 = 
+plot_diretorias_tf_dif_trigram %>%
+  filter(DIRETORIA == "DEE") %>%
+  select(-DIRETORIA, word = TRIGRAM,freq = tf_idf) %>%
+  #top_n(150, freq) %>%
+  as.data.frame() 
+
+set.seed(8835)
+wordcloud(words = nuvem1.3$word, freq = nuvem1.3$freq, min.freq = 0.2,
+          max.words=250, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(10, "Dark2"))
+#dev.off()
+```
+
+```{r wordcloud_trigram_DIR02_comstopwords, warning=FALSE, message=FALSE}
+## DGC
+#jpeg("wordcloud_tfidf_dir02_DGC_trigram_comstop_semstemming.jpeg")
+nuvem2.3 = 
+plot_diretorias_tf_dif_trigram %>%
+  filter(DIRETORIA == "DGC") %>%
+  select(-DIRETORIA, word = TRIGRAM,freq = tf_idf) %>%
+  #top_n(150, freq) %>%
+  as.data.frame() 
+
+set.seed(1273)
+wordcloud(words = nuvem2.3$word, freq = nuvem2.3$freq, min.freq = 0.2,
+          max.words=250, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(10, "Dark2"))
+```
+
+```{r wordcloud_trigram_DIR03_comstopwords, warning=FALSE, message=FALSE}
+## DEA
+#jpeg("XX_wordclou_tfidf_dir03_DEA_trigram_comstop_semstemming.jpeg")
+nuvem3.3 = 
+plot_diretorias_tf_dif_trigram %>%
+  filter(DIRETORIA == "DEA") %>%
+  select(-DIRETORIA, word = TRIGRAM,freq = tf_idf) %>%
+  #top_n(150, freq) %>%
+  as.data.frame() 
+
+set.seed(543453)
+wordcloud(words = nuvem3.3$word, freq = nuvem3.3$freq,
+          max.words=250, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(10, "Dark2"))
+```
+
+
+```{r wordcloud_trigram_DIR04_comstopwords, warning=FALSE, message=FALSE}
+## DPG
+#jpeg("XX_wordclou_tfidf_dir04_DPG_trigram_comstop_semstemming.jpeg")
+nuvem4.3 = 
+plot_diretorias_tf_dif_trigram %>%
+  filter(DIRETORIA == "DPG") %>%
+  select(-DIRETORIA, word = TRIGRAM,freq = tf_idf) %>%
+  #top_n(150, freq) %>%
+  as.data.frame() 
+
+set.seed(75437)
+wordcloud(words = nuvem4.3$word, freq = nuvem4.3$freq, min.freq = 0.1,
+          max.words=250, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(10, "Dark2"))
+```
+
+
+```{r wordcloud_trigram_DIR05_comstopwords, warning=FALSE, message=FALSE}
+## OUTROS
+#jpeg("XX_wordclou_tfidf_dir05_OUTROS_trigram_comstop_semstemming.jpeg")
+nuvem5.3 = 
+plot_diretorias_tf_dif_trigram %>%
+  filter(DIRETORIA == "OUTROS") %>%
+  select(-DIRETORIA, word = TRIGRAM,freq = tf_idf) %>%
+  #top_n(150, freq) %>%
+  as.data.frame() 
+
+set.seed(1235)
+wordcloud(words = nuvem5.3$word, freq = nuvem5.3$freq,
+          max.words=100, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(10, "Dark2"))
+```
+
+
+
+```yaml
+#View(head(plot_diretoria_palavras))
+library(wordcloud2)
+
+plot_diretorias_tf_dif_trigram = DB %>%
+  select(DESCRI_PEDIDO,DIRETORIA) %>%
+  unnest_tokens(TRIGRAM, DESCRI_PEDIDO, token = "ngrams", n = 3) %>%
+  count(DIRETORIA, TRIGRAM, sort = TRUE) %>%
+  bind_tf_idf(TRIGRAM, DIRETORIA, n) %>%
+  arrange(desc(tf_idf)) %>%
+  mutate(TRIGRAM = factor(TRIGRAM, levels = rev(unique(TRIGRAM)))) %>%
+  mutate(DIRETORIA = factor(DIRETORIA,levels=c("DEA","DEE","DGC","DPG","OUTROS"))) %>%
+  select(TRIGRAM, tf_idf, DIRETORIA)
+  
+
+## DEE
+#jpeg("XX_wordclou_tfidf_dir01_DEE.jpeg")
+set.seed(233115)
+plot_diretorias_tf_dif_trigram %>%
+  filter(DIRETORIA == "DEE") %>%
+  top_n(150, tf_idf) %>%
+  wordcloud2(shuffle = TRUE, 
+             color = "random-dark",
+             shape = "circle")
+
+## DGC
+#jpeg("XX_wordclou_tfidf_dir02_DGC.jpeg")
+set.seed(233115)
+plot_diretorias_tf_dif_trigram %>%
+  filter(DIRETORIA == "DGC") %>%
+  top_n(150, tf_idf) %>%
+  wordcloud2()
+
+## DEA
+#jpeg("XX_wordclou_tfidf_dir03_DEA.jpeg")
+set.seed(233115)
+plot_diretorias_tf_dif_trigram %>%
+  filter(DIRETORIA == "DEA") %>%
+  top_n(150, tf_idf) %>%
+  wordcloud2()
+
+## DPG
+#jpeg("XX_wordclou_tfidf_dir04_DPG.jpeg")
+set.seed(233115)
+plot_diretorias_tf_dif_trigram %>%
+  filter(DIRETORIA == "DPG") %>%
+  top_n(150, tf_idf) %>%
+  wordcloud2()
+  
+## OUTROS
+#jpeg("XX_wordclou_tfidf_dir05_OUTROS.jpeg")
+set.seed(233115)
+plot_diretorias_tf_dif_trigram %>%
+  filter(DIRETORIA == "OUTROS") %>%
+  top_n(150, tf_idf) %>%
+  wordcloud2()  
+```
+
+

@@ -1,0 +1,35 @@
+<!--      
+Essa Rotina é destinada a importação de dados do projeto de mineração de texto em pedidos via Sistema Eletrônico de Serviço de Informação ao Cidadão (e-SIC)
+-->
+
+- Pedidos e-SIC
+```{r}
+FILE = "relatorio_pedidos.ods"
+db_raw = readODS::read.ods(file = paste0(PATH,FILE), sheet = 1); # dim(db_raw)
+dbnames = db_raw[1,]; db_raw = db_raw[-1,]; 
+colnames(db_raw) = c("ID", "DATA_PEDIDO", "DATA_PRAZOATEND", "DESCRI_PEDIDO",
+                     "RESUMO_PEDIDO", "DATA_RESPOSTA")
+#View(head(db_raw))
+LAI = db_raw
+```
+
+- Respostas e-SIC
+```{r}
+FILE1 = "relatorio_respostas.xlsx"
+db1_raw = readxl::read_excel(paste0(PATH,FILE1), sheet = "DADOS", col_names = TRUE); 
+# dim(db1_raw); names(db1_raw)
+colnames(db1_raw) = c("ID", "DATA", "SOLICITACAO", "DIRETORIA", "DATA_RESPOSTA")
+#View(head(db1_raw))
+LAI1 = db1_raw
+```
+
+- Stopwords
+```{r cars}
+FILE2 = "stopwords_PT_FINAL.csv"
+stopwords_pt = read.csv(paste0(PATH,FILE2), sep = ';', header = F, encoding = "UTF-8")
+stopwords_pt = stopwords_pt[,-2]; 
+cat(paste0("O nosso vetor de stopwords contém ",length(stopwords_pt), " palavras únicas"))
+## dim(stopwords_pt); class(stopwords_pt)
+stopwords_pt = as.character(stopwords_pt)
+stopwords_pt[1:14]
+```
