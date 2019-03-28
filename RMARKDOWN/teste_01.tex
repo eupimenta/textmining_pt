@@ -1,0 +1,422 @@
+\documentclass[]{article}
+\usepackage{lmodern}
+\usepackage{amssymb,amsmath}
+\usepackage{ifxetex,ifluatex}
+\usepackage{fixltx2e} % provides \textsubscript
+\ifnum 0\ifxetex 1\fi\ifluatex 1\fi=0 % if pdftex
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+\else % if luatex or xelatex
+  \ifxetex
+    \usepackage{mathspec}
+  \else
+    \usepackage{fontspec}
+  \fi
+  \defaultfontfeatures{Ligatures=TeX,Scale=MatchLowercase}
+\fi
+% use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+% use microtype if available
+\IfFileExists{microtype.sty}{%
+\usepackage{microtype}
+\UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\usepackage[margin=1in]{geometry}
+\usepackage{hyperref}
+\hypersetup{unicode=true,
+            pdftitle={Mineração de texto em pedidos de Lei de Acesso à informação - LAI},
+            pdfborder={0 0 0},
+            breaklinks=true}
+\urlstyle{same}  % don't use monospace font for urls
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\usepackage{framed}
+\definecolor{shadecolor}{RGB}{248,248,248}
+\newenvironment{Shaded}{\begin{snugshade}}{\end{snugshade}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\ImportTok}[1]{#1}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\BuiltInTok}[1]{#1}
+\newcommand{\ExtensionTok}[1]{#1}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.77,0.63,0.00}{#1}}
+\newcommand{\RegionMarkerTok}[1]{#1}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{0.94,0.16,0.16}{#1}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{0.64,0.00,0.00}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{#1}
+\usepackage{graphicx,grffile}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+\IfFileExists{parskip.sty}{%
+\usepackage{parskip}
+}{% else
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt plus 2pt minus 1pt}
+}
+\setlength{\emergencystretch}{3em}  % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{0}
+% Redefines (sub)paragraphs to behave more like sections
+\ifx\paragraph\undefined\else
+\let\oldparagraph\paragraph
+\renewcommand{\paragraph}[1]{\oldparagraph{#1}\mbox{}}
+\fi
+\ifx\subparagraph\undefined\else
+\let\oldsubparagraph\subparagraph
+\renewcommand{\subparagraph}[1]{\oldsubparagraph{#1}\mbox{}}
+\fi
+
+%%% Use protect on footnotes to avoid problems with footnotes in titles
+\let\rmarkdownfootnote\footnote%
+\def\footnote{\protect\rmarkdownfootnote}
+
+%%% Change title format to be more compact
+\usepackage{titling}
+
+% Create subtitle command for use in maketitle
+\newcommand{\subtitle}[1]{
+  \posttitle{
+    \begin{center}\large#1\end{center}
+    }
+}
+
+\setlength{\droptitle}{-2em}
+
+  \title{Mineração de texto em pedidos de Lei de Acesso à informação - LAI}
+    \pretitle{\vspace{\droptitle}\centering\huge}
+  \posttitle{\par}
+    \author{}
+    \preauthor{}\postauthor{}
+    \date{}
+    \predate{}\postdate{}
+  
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage[table]{xcolor}
+\usepackage{wrapfig}
+\usepackage{float}
+\usepackage{colortbl}
+\usepackage{pdflscape}
+\usepackage{tabu}
+\usepackage{threeparttable}
+\usepackage{threeparttablex}
+\usepackage[normalem]{ulem}
+\usepackage{makecell}
+
+\begin{document}
+\maketitle
+
+\subsection{Packages for this routine}\label{packages-for-this-routine}
+
+\section{BASE DE DADOS}\label{base-de-dados}
+
+\subsection{Importação dos dados}\label{importacao-dos-dados}
+
+Caminho do projeto
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{PATH = }\StringTok{"..;/proj_eSIC_v10/textmining_pt/DATA/"}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{itemize}
+\tightlist
+\item
+  Pedidos e-SIC
+\end{itemize}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{FILE =}\StringTok{ "DATA/relatorio_pedidos.ods"}
+\NormalTok{db_raw =}\StringTok{ }\NormalTok{readODS}\OperatorTok{::}\KeywordTok{read.ods}\NormalTok{(}\DataTypeTok{file =} \KeywordTok{paste0}\NormalTok{(PATH,FILE), }\DataTypeTok{sheet =} \DecValTok{1}\NormalTok{); }\CommentTok{# dim(db_raw)}
+\NormalTok{dbnames =}\StringTok{ }\NormalTok{db_raw[}\DecValTok{1}\NormalTok{,]; db_raw =}\StringTok{ }\NormalTok{db_raw[}\OperatorTok{-}\DecValTok{1}\NormalTok{,]; }
+\KeywordTok{colnames}\NormalTok{(db_raw) =}\StringTok{ }\KeywordTok{c}\NormalTok{(}\StringTok{"ProtocoloPedido"}\NormalTok{, }\StringTok{"DataRegistro"}\NormalTok{, }\StringTok{"DATA_PRAZOATEND"}\NormalTok{, }\StringTok{"DESCRI_PEDIDO"}\NormalTok{,}
+                     \StringTok{"RESUMO_PEDIDO"}\NormalTok{, }\StringTok{"DATA_RESPOSTA"}\NormalTok{)}
+\CommentTok{#View(head(db_raw))}
+\NormalTok{LAI =}\StringTok{ }\NormalTok{db_raw}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{itemize}
+\tightlist
+\item
+  Respostas e-SIC
+\end{itemize}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{FILE1 =}\StringTok{ "DATA/relatorio_respostas.xlsx"}
+\NormalTok{db1_raw =}\StringTok{ }\NormalTok{readxl}\OperatorTok{::}\KeywordTok{read_excel}\NormalTok{(}\KeywordTok{paste0}\NormalTok{(PATH,FILE1), }\DataTypeTok{sheet =} \StringTok{"DADOS"}\NormalTok{, }\DataTypeTok{col_names =} \OtherTok{TRUE}\NormalTok{); }
+\CommentTok{# dim(db1_raw); names(db1_raw)}
+\KeywordTok{colnames}\NormalTok{(db1_raw) =}\StringTok{ }\KeywordTok{c}\NormalTok{(}\StringTok{"ID"}\NormalTok{, }\StringTok{"DATA"}\NormalTok{, }\StringTok{"SOLICITACAO"}\NormalTok{, }\StringTok{"DIRETORIA"}\NormalTok{, }\StringTok{"DATA_RESPOSTA"}\NormalTok{)}
+\CommentTok{#View(head(db1_raw))}
+\NormalTok{LAI1 =}\StringTok{ }\NormalTok{db1_raw}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{itemize}
+\tightlist
+\item
+  Stopwords
+\end{itemize}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{FILE2 =}\StringTok{ "DATA/stopwords_PT_FINAL.csv"}
+\NormalTok{stopwords_pt =}\StringTok{ }\KeywordTok{read.csv}\NormalTok{(}\KeywordTok{paste0}\NormalTok{(PATH,FILE2), }\DataTypeTok{sep =} \StringTok{';'}\NormalTok{, }\DataTypeTok{header =}\NormalTok{ F, }\DataTypeTok{encoding =} \StringTok{"UTF-8"}\NormalTok{)}
+\NormalTok{stopwords_pt =}\StringTok{ }\NormalTok{stopwords_pt[,}\OperatorTok{-}\DecValTok{2}\NormalTok{]; }
+\KeywordTok{cat}\NormalTok{(}\KeywordTok{paste0}\NormalTok{(}\StringTok{"O nosso vetor de stopwords contém "}\NormalTok{,}\KeywordTok{length}\NormalTok{(stopwords_pt), }\StringTok{" palavras únicas"}\NormalTok{))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## O nosso vetor de stopwords contém 605 palavras únicas
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{## dim(stopwords_pt); class(stopwords_pt)}
+\NormalTok{stopwords_pt =}\StringTok{ }\KeywordTok{as.character}\NormalTok{(stopwords_pt)}
+\NormalTok{stopwords_pt[}\DecValTok{1}\OperatorTok{:}\DecValTok{14}\NormalTok{]}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##  [1] ","       "a"       "à"       "acerca"  "adeus"   "agora"   "aí"     
+##  [8] "ainda"   "alem"    "além"    "algmas"  "algo"    "algumas" "alguns"
+\end{verbatim}
+
+\begin{itemize}
+\tightlist
+\item
+  Dicionário \textgreater{} BASE DE DADOS - REAL PRO TEXTO DO TCC
+\end{itemize}
+
+Dicionário de variáveis - PEDIDOS
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{dicionario =}\StringTok{ "DATA/Dicionario-Dados-Exportacao.txt"}
+\NormalTok{dic_pedidos =}\StringTok{ }\KeywordTok{read.delim}\NormalTok{(dicionario, }\DataTypeTok{sep =} \StringTok{"-"}\NormalTok{, }\DataTypeTok{skip =} \DecValTok{3}\NormalTok{, }\DataTypeTok{header =} \OtherTok{FALSE}\NormalTok{, }\DataTypeTok{nrows =} \DecValTok{21}\NormalTok{) }\OperatorTok{%>%}
+\StringTok{  }\KeywordTok{select}\NormalTok{(}\OperatorTok{-}\NormalTok{V1)}
+\KeywordTok{colnames}\NormalTok{(dic_pedidos) =}\StringTok{ }\KeywordTok{c}\NormalTok{(}\StringTok{"Nome das variáveis"}\NormalTok{, }\StringTok{"Tipo e descrição da variável"}\NormalTok{)}
+\CommentTok{#dimnames(dic_pedidos); View(dic_pedidos)}
+\end{Highlighting}
+\end{Shaded}
+
+Dicionário de variáveis - RECURSOS
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{dic_recursos =}\StringTok{ }\KeywordTok{read.delim}\NormalTok{(dicionario, }\DataTypeTok{sep =} \StringTok{"-"}\NormalTok{, }\DataTypeTok{skip =} \DecValTok{30}\NormalTok{, }\DataTypeTok{header =} \OtherTok{FALSE}\NormalTok{, }\DataTypeTok{nrows =} \DecValTok{17}\NormalTok{) }\OperatorTok{%>%}
+\StringTok{  }\KeywordTok{select}\NormalTok{(}\OperatorTok{-}\NormalTok{V1)}
+\KeywordTok{colnames}\NormalTok{(dic_recursos) =}\StringTok{ }\KeywordTok{c}\NormalTok{(}\StringTok{"Nome das variáveis"}\NormalTok{, }\StringTok{"Tipo e descrição da variável"}\NormalTok{)}
+\CommentTok{#dimnames(dic_recursos); View(dic_recursos)}
+\end{Highlighting}
+\end{Shaded}
+
+Dicionário de variáveis - SOLICITANTES
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{dicionario =}\StringTok{ "DATA/Dicionario-Dados-Exportacao.txt"}
+\NormalTok{dic_solicitantes =}\StringTok{ }\KeywordTok{read.delim}\NormalTok{(}\DataTypeTok{file =}\NormalTok{ dicionario, }\DataTypeTok{sep =} \StringTok{"-"}\NormalTok{, }\DataTypeTok{skip =} \DecValTok{53}\NormalTok{, }\DataTypeTok{header =} \OtherTok{FALSE}\NormalTok{, }\DataTypeTok{nrows =} \DecValTok{10}\NormalTok{) }\OperatorTok{%>%}
+\StringTok{  }\KeywordTok{select}\NormalTok{(}\OperatorTok{-}\NormalTok{V1)}
+\KeywordTok{colnames}\NormalTok{(dic_solicitantes) =}\StringTok{ }\KeywordTok{c}\NormalTok{(}\StringTok{"Nome das variáveis"}\NormalTok{, }\StringTok{"Tipo e descrição da variável"}\NormalTok{)}
+\CommentTok{#dimnames(dic_solicitantes); View(dic_solicitantes)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{itemize}
+\tightlist
+\item
+  Anexo 02: Tabela - Dicionário de variáveis da tabela de pedidos
+\end{itemize}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{dic_pedidos }\OperatorTok{%>%}
+\KeywordTok{kable}\NormalTok{(}\StringTok{"latex"}\NormalTok{, }\DataTypeTok{caption =} \StringTok{"Dicionário de variáveis da tabela de pedidos"}\NormalTok{, }\DataTypeTok{booktabs =}\NormalTok{ T) }\OperatorTok{%>%}
+\StringTok{  }\KeywordTok{kable_styling}\NormalTok{(}\DataTypeTok{latex_options =} \KeywordTok{c}\NormalTok{(}\StringTok{"striped"}\NormalTok{, }\StringTok{"hold_position"}\NormalTok{), }\DataTypeTok{full_width =}\NormalTok{ F) }\OperatorTok{%>%}
+\StringTok{  }\CommentTok{#column_spec(1:1, width = "3cm") %>%}
+\StringTok{  }\KeywordTok{column_spec}\NormalTok{(}\DecValTok{2}\OperatorTok{:}\DecValTok{2}\NormalTok{, }\DataTypeTok{width =} \StringTok{"15cm"}\NormalTok{) }\OperatorTok{%>%}
+\KeywordTok{landscape}\NormalTok{()}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{landscape}\rowcolors{2}{gray!6}{white}
+\begin{table}[!h]
+
+\caption{\label{tab:unnamed-chunk-4}Dicionário de variáveis da tabela de pedidos}
+\centering
+\begin{tabular}[t]{l>{\raggedright\arraybackslash}p{15cm}}
+\hiderowcolors
+\toprule
+Nome das variáveis & Tipo e descrição da variável\\
+\midrule
+\showrowcolors
+IdPedido & inteiro: identificador único do pedido (não mostrado no sistema);\\
+ProtocoloPedido & texto(17): número do protocolo do pedido;\\
+OrgaoSuperiorAssociadoaoDestinatario & texto(250): Quando o órgão for vinculado, este campo traz o nome do seu órgão superior;\\
+OrgaoDestinatario & texto(250): nome do órgão destinatário do pedido;\\
+Situacao & texto(200): descrição da situação do pedido;\\
+\addlinespace
+DataRegistro & Data DD/MM/AAAA HH:MM:SS : data de abertura do pedido;\\
+ResumoSolicitacao & texto(255): resumo do pedido;\\
+DetalhamentoSolicitacao & texto(2048): detalhamento do pedido;\\
+PrazoAtendimento & Data DD/MM/AAAA HH:MM:ss : data limite para atendimento ao pedido;\\
+FoiProrrogado & texto(3) Sim ou Não : informa se houve prorrogação do prazo do pedido;\\
+\addlinespace
+FoiReencaminhado & texto(3) Sim ou Não: informa se o pedido foi reencaminhado;\\
+FormaResposta & texto(200): tipo de resposta escolhida pelo solicitante na abertura do pedido;\\
+OrigemSolicitacao & texto(50): informa se o pedido foi aberto em um Balcão SIC ou pela Internet;\\
+IdSolicitante & inteiro: identificador único do solicitante (não mostrado no sistema);\\
+CategoriaPedido & texto(200) : categoria do pedido atribuída pel SIC de acordo com o VCGE (Vocabulário COntrolado do GOverno Eletrônico);\\
+\addlinespace
+SubCategoriaPedido & texto(200) : subcategoria do pedido atribuída pel SIC de acordo com o VCGE (Vocabulário COntrolado do GOverno Eletrônico);\\
+NumeroPerguntas & inteiro : número de perguntas feitas no pedido;\\
+DataResposta & Data DD/MM/AAAA HH:MM:SS : data da resposta ao pedido (campo em branco para pedidos que ainda estejam na situação Em Tramitação);\\
+Resposta & texto(8000): resposta ao pedido;\\
+TipoResposta & texto(100) : tipo resposta dada ao pedido (campo em branco para pedidos que ainda estejam na situação Em Tramitação);\\
+ClassificacaoTipoResposta & texto(200): subtipo da resposta dada ao pedido (campo em branco para pedidos que ainda estejam na situação Em Tramitação);\\
+\bottomrule
+\end{tabular}
+\end{table}
+\rowcolors{2}{white}{white}
+\end{landscape}
+
+\begin{itemize}
+\tightlist
+\item
+  Anexo 03: Tabela - Dicionário de variáveis da tabela de recursos
+\end{itemize}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{dic_recursos }\OperatorTok{%>%}
+\KeywordTok{kable}\NormalTok{(}\StringTok{"latex"}\NormalTok{, }\DataTypeTok{caption =} \StringTok{"Dicionário de variáveis da tabela de recursos"}\NormalTok{, }\DataTypeTok{booktabs =}\NormalTok{ T) }\OperatorTok{%>%}
+\StringTok{  }\KeywordTok{kable_styling}\NormalTok{(}\DataTypeTok{latex_options =} \KeywordTok{c}\NormalTok{(}\StringTok{"striped"}\NormalTok{, }\StringTok{"hold_position"}\NormalTok{), }\DataTypeTok{full_width =}\NormalTok{ F) }\OperatorTok{%>%}
+\StringTok{  }\CommentTok{#column_spec(1:1, width = "3cm") %>%}
+\StringTok{  }\KeywordTok{column_spec}\NormalTok{(}\DecValTok{2}\OperatorTok{:}\DecValTok{2}\NormalTok{, }\DataTypeTok{width =} \StringTok{"15cm"}\NormalTok{) }\OperatorTok{%>%}
+\KeywordTok{landscape}\NormalTok{()}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{landscape}\rowcolors{2}{gray!6}{white}
+\begin{table}[!h]
+
+\caption{\label{tab:unnamed-chunk-5}Dicionário de variáveis da tabela de recursos}
+\centering
+\begin{tabular}[t]{l>{\raggedright\arraybackslash}p{15cm}}
+\hiderowcolors
+\toprule
+Nome das variáveis & Tipo e descrição da variável\\
+\midrule
+\showrowcolors
+IdRecurso & inteiro: identificador único do recurso (não mostrado no sistema);\\
+IdRecursoPrecedente & inteiro: identificador único do recurso que precedeu este (não mostrado no sistema e em branco no caso de Recursos de 1ª Instância e Reclamações);\\
+DescRecurso & texto(8000): descrição do recurso;\\
+IdPedido & inteiro: identificador único do pedido ao qual o recurso pertence (não mostrado no sistema);\\
+IdSolicitante & inteiro: identificador único do solicitante (não mostrado no sistema);\\
+\addlinespace
+ProtocoloPedido & texto(17): número do protocolo do pedido ao qual o recurso pertence;\\
+OrgaoSuperiorAssociadoaoDestinatario & texto(250): Quando o órgão for vinculado, este campo traz o nome do seu órgão superior;\\
+OrgaoDestinatario & texto(250): nome do órgão destinatário do recurso;\\
+Instancia & texto(80): descrição da instância do recurso;\\
+Situacao & texto(80): descrição da situação do recurso;\\
+\addlinespace
+DataRegistro & Data DD/MM/AAAA HH:MM:SS : data de abertura do recurso;\\
+PrazoAtendimento & Data DD/MM/AAAA HH:MM:SS : data limite para atendimento ao recurso;\\
+OrigemSolicitacao & texto(50): informa se o recurso foi aberto em um Balcão SIC ou pela Internet;\\
+TipoRecurso & texto(80): motivo de abertura do recurso;\\
+DataResposta & Data DD/MM/AAAA HH:MM:SS : data da resposta ao recurso (campo em branco para recursos que ainda estejam na situação Em Tramitação);\\
+\addlinespace
+RespostaRecurso & texto(8000): resposta ao recurso;\\
+TipoResposta & texto(80): tipo resposta dada ao recurso (campo em branco para recursos que ainda estejam na situação Em Tramitação);\\
+\bottomrule
+\end{tabular}
+\end{table}
+\rowcolors{2}{white}{white}
+\end{landscape}
+
+\begin{itemize}
+\tightlist
+\item
+  Anexo 04: Tabela - Dicionário de variáveis da tabela de solicitantes
+\end{itemize}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{dic_solicitantes }\OperatorTok{%>%}
+\KeywordTok{kable}\NormalTok{(}\StringTok{"latex"}\NormalTok{, }\DataTypeTok{caption =} \StringTok{"Dicionário de variáveis da tabela de solicitantes"}\NormalTok{, }\DataTypeTok{booktabs =}\NormalTok{ T) }\OperatorTok{%>%}
+\StringTok{  }\KeywordTok{kable_styling}\NormalTok{(}\DataTypeTok{latex_options =} \KeywordTok{c}\NormalTok{(}\StringTok{"striped"}\NormalTok{, }\StringTok{"hold_position"}\NormalTok{), }\DataTypeTok{full_width =}\NormalTok{ F) }\OperatorTok{%>%}
+\StringTok{  }\CommentTok{#column_spec(1:1, width = "3cm") %>%}
+\StringTok{  }\KeywordTok{column_spec}\NormalTok{(}\DecValTok{2}\OperatorTok{:}\DecValTok{2}\NormalTok{, }\DataTypeTok{width =} \StringTok{"15cm"}\NormalTok{) }\OperatorTok{%>%}
+\KeywordTok{landscape}\NormalTok{()}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{landscape}\rowcolors{2}{gray!6}{white}
+\begin{table}[!h]
+
+\caption{\label{tab:unnamed-chunk-6}Dicionário de variáveis da tabela de solicitantes}
+\centering
+\begin{tabular}[t]{l>{\raggedright\arraybackslash}p{15cm}}
+\hiderowcolors
+\toprule
+Nome das variáveis & Tipo e descrição da variável\\
+\midrule
+\showrowcolors
+IdSolicitante & inteiro: identificador único do solicitante (não mostrado no sistema);\\
+TipoDemandante & texto(15): Pessoa Fìsica ou Pessoa Jurídica;\\
+DataNascimento & Data DD/MM/AAAA : data de nascimento do solicitante;\\
+Sexo & texto(13) : Masculino ou Feminino (em branco para pessoa jurídica);\\
+Escolaridade & texto(200): Escolaridade do solicitante (em branco para pessoa jurídica);\\
+\addlinespace
+Profissao & texto(200): Profissão do solicitante (em branco para pessoa jurídica);\\
+TipoPessoaJuridica & texto(200): tipo de Pessoa Jurídica do solicitante (em branco para pessoa física)\\
+Pais & texto(200): país de residência do solicitante;\\
+UF & texto(2): UF de residência do solicitante;\\
+Municipio & texto(200): Município de residência do solicitante;\\
+\bottomrule
+\end{tabular}
+\end{table}
+\rowcolors{2}{white}{white}
+\end{landscape}
+
+
+\end{document}

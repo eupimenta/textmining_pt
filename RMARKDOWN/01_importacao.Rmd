@@ -4,10 +4,10 @@ Essa Rotina é destinada a importação de dados do projeto de mineração de te
 
 - Pedidos e-SIC
 ```{r}
-FILE = "relatorio_pedidos.ods"
+FILE = "DATA/relatorio_pedidos.ods"
 db_raw = readODS::read.ods(file = paste0(PATH,FILE), sheet = 1); # dim(db_raw)
 dbnames = db_raw[1,]; db_raw = db_raw[-1,]; 
-colnames(db_raw) = c("ID", "DATA_PEDIDO", "DATA_PRAZOATEND", "DESCRI_PEDIDO",
+colnames(db_raw) = c("ProtocoloPedido", "DataRegistro", "DATA_PRAZOATEND", "DESCRI_PEDIDO",
                      "RESUMO_PEDIDO", "DATA_RESPOSTA")
 #View(head(db_raw))
 LAI = db_raw
@@ -15,7 +15,7 @@ LAI = db_raw
 
 - Respostas e-SIC
 ```{r}
-FILE1 = "relatorio_respostas.xlsx"
+FILE1 = "DATA/relatorio_respostas.xlsx"
 db1_raw = readxl::read_excel(paste0(PATH,FILE1), sheet = "DADOS", col_names = TRUE); 
 # dim(db1_raw); names(db1_raw)
 colnames(db1_raw) = c("ID", "DATA", "SOLICITACAO", "DIRETORIA", "DATA_RESPOSTA")
@@ -25,7 +25,7 @@ LAI1 = db1_raw
 
 - Stopwords
 ```{r cars}
-FILE2 = "stopwords_PT_FINAL.csv"
+FILE2 = "DATA/stopwords_PT_FINAL.csv"
 stopwords_pt = read.csv(paste0(PATH,FILE2), sep = ';', header = F, encoding = "UTF-8")
 stopwords_pt = stopwords_pt[,-2]; 
 cat(paste0("O nosso vetor de stopwords contém ",length(stopwords_pt), " palavras únicas"))
@@ -33,3 +33,33 @@ cat(paste0("O nosso vetor de stopwords contém ",length(stopwords_pt), " palavra
 stopwords_pt = as.character(stopwords_pt)
 stopwords_pt[1:14]
 ```
+
+- Dicionário
+> BASE DE DADOS - REAL PRO TEXTO DO TCC
+
+Dicionário de variáveis - PEDIDOS
+```{r}
+dicionario = "DATA/Dicionario-Dados-Exportacao.txt"
+dic_pedidos = read.delim(dicionario, sep = "-", skip = 3, header = FALSE, nrows = 21) %>%
+  select(-V1)
+colnames(dic_pedidos) = c("Nome das variáveis", "Tipo e descrição da variável")
+#dimnames(dic_pedidos); View(dic_pedidos)
+```
+
+Dicionário de variáveis - RECURSOS
+```{r}
+dic_recursos = read.delim(dicionario, sep = "-", skip = 30, header = FALSE, nrows = 17) %>%
+  select(-V1)
+colnames(dic_recursos) = c("Nome das variáveis", "Tipo e descrição da variável")
+#dimnames(dic_recursos); View(dic_recursos)
+```
+
+Dicionário de variáveis - SOLICITANTES
+```{r}
+dicionario = "DATA/Dicionario-Dados-Exportacao.txt"
+dic_solicitantes = read.delim(file = dicionario, sep = "-", skip = 53, header = FALSE, nrows = 10) %>%
+  select(-V1)
+colnames(dic_solicitantes) = c("Nome das variáveis", "Tipo e descrição da variável")
+#dimnames(dic_solicitantes); View(dic_solicitantes)
+```
+

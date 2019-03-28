@@ -1,0 +1,11 @@
+
+
+- Anexo 02: Tabela - Dicionário de variáveis da tabela de pedidos
+```{r}
+dic %>%
+kable("latex", caption = "Dicionário de variáveis da tabela de pedidos", booktabs = T) %>%
+  kable_styling(latex_options = c("striped", "hold_position"), full_width = F) %>%
+  column_spec(1:1, width = "3cm") %>%
+  column_spec(2:2, width = "15cm") %>%
+landscape()
+```
