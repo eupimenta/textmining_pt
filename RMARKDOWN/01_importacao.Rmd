@@ -4,16 +4,16 @@ Essa Rotina é destinada a importação de dados do projeto de mineração de te
 
 - Pedidos e-SIC
 ```{r}
-FILE = "DATA/relatorio_pedidos.ods"
+FILE = "/DATA/relatorio_pedidos.ods"
 db_raw = readODS::read.ods(file = paste0(PATH,FILE), sheet = 1); # dim(db_raw)
 dbnames = db_raw[1,]; db_raw = db_raw[-1,]; 
-colnames(db_raw) = c("ProtocoloPedido", "DataRegistro", "DATA_PRAZOATEND", "DESCRI_PEDIDO",
+colnames(db_raw) = c("ID", "DataRegistro", "DATA_PRAZOATEND", "DESCRI_PEDIDO",
                      "RESUMO_PEDIDO", "DATA_RESPOSTA")
 #View(head(db_raw))
 LAI = db_raw
 ```
 
-- Respostas e-SIC
+- Respostas e-SIC (DIRETORIAS EPE)
 ```{r}
 FILE1 = "DATA/relatorio_respostas.xlsx"
 db1_raw = readxl::read_excel(paste0(PATH,FILE1), sheet = "DADOS", col_names = TRUE); 

@@ -44,16 +44,16 @@ Essa reclassificação foi efetuada visando um balanceamento nas categorias em q
 LAI1 = LAI1 %>% 
   mutate(DIR_NEW = ifelse(DIRETORIA == diretorias[1],diretorias[1],
                           ifelse(DIRETORIA == diretorias[2],diretorias[2], "OUTRAS")))
-```
 
 
-```{r}
+
+
 LAI1 %>%
  count(DIR_NEW, sort = TRUE) %>%
   kable("latex", caption = "Frequência de solicitações e-SIC por Diretoria/EPE (TOP2)",
         booktabs = T) %>%
   kable_styling(latex_options = c("striped", "hold_position"))
-```
+
 ```
 -->
 
