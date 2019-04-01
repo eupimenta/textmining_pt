@@ -1,0 +1,71 @@
+<!--      
+Essa Rotina é destinada a importação de dados do projeto de mineração de texto em pedidos via Sistema Eletrônico de Serviço de Informação ao Cidadão (e-SIC)
+-->
+
+### Pedidos por diretoria 
+
+- Tabela 01 número de solcitações/pedidos de informação 
+```{r}
+LAI1 %>%
+ count(DIRETORIA, sort = TRUE, name = "total_pedidos") %>%
+  kable("latex", caption = "Quantitativo de solicitações por Diretoria/EPE via e-SIC",
+        booktabs = T) %>%
+  kable_styling(latex_options = c("striped", "hold_position"))
+diretorias0 = levels(as.factor(LAI1$DIRETORIA))
+```
+
+Verificamos a existência de 5 diretorias, sendo elas: _DEA_, _DEE_, _DGC_, _DPG_, _SIC_ e _OUTROS_. Essa última é devido a existência de informações solicitadas que não são de competência direta de nenhuma das cinco diretorias, daí a necessidade de uma última categoria _OUTROS_ para atender essas demandas.
+
+A seguir, um passo importante de reclassificação será executado devido ao número pequeno de solicitações para a diretoria _SIC_. Apenas uma solcitação existente no nosso banco de dados para essa diretoria. Iremos, portanto, unificar essa demanda à categoria _OUTROS_.
+
+- Respostas e-SIC - Reclassificação Diretorias
+```{r}
+LAI1 = LAI1 %>% 
+  mutate(DIRETORIA = ifelse(DIRETORIA == diretorias0[6],diretorias0[5],DIRETORIA))
+diretorias = levels(as.factor(LAI1$DIRETORIA))
+#dim(LAI1)
+#View(head(LAI1))
+```
+
+- Tabela 02 número de solcitações/pedidos de informação - após reclassificação
+```{r}
+pedidos_diretoria = LAI1 %>%
+ count(DIRETORIA, sort = TRUE, name = "total_pedidos") 
+pedidos_diretoria %>%
+  kable("latex", caption = "Quantitativo de solicitações por Diretoria/EPE via e-SIC - após reclassificação", 
+        booktabs = T) %>%
+  kable_styling(latex_options = c("striped", "hold_position"))
+```
+
+<!--
+```yaml
+Essa reclassificação foi efetuada visando um balanceamento nas categorias em questão. Podemos verificar uma bom equilíbrio entre o número de pedidos por categoria.
+```{r}
+LAI1 = LAI1 %>% 
+  mutate(DIR_NEW = ifelse(DIRETORIA == diretorias[1],diretorias[1],
+                          ifelse(DIRETORIA == diretorias[2],diretorias[2], "OUTRAS")))
+
+
+
+
+LAI1 %>%
+ count(DIR_NEW, sort = TRUE) %>%
+  kable("latex", caption = "Frequência de solicitações e-SIC por Diretoria/EPE (TOP2)",
+        booktabs = T) %>%
+  kable_styling(latex_options = c("striped", "hold_position"))
+
+```
+-->
+
+As constatações anteriores foram feitas apenas na base de dados referente às respostas, donde temos a classificação das diretorias responsáveis por responder cada uma das demandas. É necessário, agora, unificar as bases de dados pertinentes a solicitações e respostas.
+
+### Unificando as duas bases
+```{r}
+LAI = LAI %>% select(-DATA_RESPOSTA); #dim(LAI)
+LAI1 = LAI1 %>% select(-DATA); #dim(LAI1)
+DB = left_join(x = LAI, y = LAI1, by = "ID")
+#View(head(DB))
+```
+
+Ver Anexo 01 c/ amostra dos dados da tabela que serpá utilizada para manipulação daqui pra frente.
+
