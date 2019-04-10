@@ -1,0 +1,76 @@
+---------- (DATASET KAGGLE) ----------
+
+BANCO DE DADOS 
+https://www.kaggle.com/blastchar/telco-customer-churn
+
+
+---------- (ANálise preditiva & CLASSIFICAÇÃO) ----------
+
+MACHINE LEARNING
+https://www.displayr.com/predict-customer-churn-gradient-boosting/
+
+KAGGLE (COMPARA 7 MODELOS)
+https://www.kaggle.com/blastchar/improve-customer-retention-churn
+
+KAGGLE (VARIABLE IMPORTANCE - Borutha Algorithm)
+https://www.kaggle.com/wammed/examining-factors-that-influence-churn
+
+KAGGLE (Predict churn to retain customers)
+https://www.kaggle.com/anurag22/churn-propensity-and-feature-importance-ranking
+
+KAGGLE (LOGISTIC REGRESSION)
+https://www.kaggle.com/farazrahman/telco-customer-churn-logisticregression
+
+
+SAS VISUAL ANALYTICS (VA) CLUSTERING:
+https://www.youtube.com/watch?v=VBxdoL84xrM
+
+HIGHCHARTER - JKUNST (R)
+http://jkunst.com/highcharter/hchart.html
+
+k-MEANS CLUSTERING -  USANDO R (RMARKDOWN)
+https://rstudio-pubs-static.s3.amazonaws.com/323642_7886f7c41a4a425f9be777dd90f7f99e.html
+
+CLUSTER ANALYSIS - QUICK R
+https://www.statmethods.net/advstats/cluster.html
+
+K-MEANS CLUSTERING - DATACAMP
+https://www.datacamp.com/community/tutorials/k-means-clustering-r
+
+RMarkdown tips
+http://r4ds.had.co.nz/r-markdown-formats.html
+https://bookdown.org/yihui/rmarkdown/html-document.html
+
+R Notebook tips
+http://data-steve.github.io/setting-up-r-notebook/
+https://minimaxir.com/2017/06/r-notebooks/
+
+Highcharts Parallel Coordinates
+https://www.highcharts.com/docs/chart-and-series-types/parallel-coordinates-chart
+https://www.highcharts.com/demo/parallel-coordinates
+http://jsfiddle.net/gh/get/library/pure/highcharts/highcharts/tree/samples/highcharts/demo/parallel-coordinates/
+
+
+USING EMOJI RMARKDOWN
+https://help.github.com/articles/basic-writing-and-formatting-syntax/#using-emoji
+
+THEMES RMARKDOWN
+http://www.datadreaming.org/post/r-markdown-theme-gallery/
+
+HIGHLIGHT RMARKDOWN
+https://www.garrickadenbuie.com/blog/2018/07/06/pandoc-syntax-highlighting-examples/
+
+CUSTOM RMARKDOWN 
+https://bookdown.org/yihui/rmarkdown/html-document.html#appearance-and-style
+
+MARKDOWN CHEATSHEET
+https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet
+
+GGPLOT2 colors
+http://www.sthda.com/english/wiki/ggplot2-colors-how-to-change-colors-automatically-and-manually
+http://www.sthda.com/english/wiki/colors-in-r
+gridExtra
+
+GGPLOT2 Themes
+https://ggplot2.tidyverse.org/reference/ggtheme.html
+https://ggplot2.tidyverse.org/reference/theme.html

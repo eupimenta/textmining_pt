@@ -1,0 +1,5 @@
+DESCRIÇÃO BANCO
+https://www.kaggle.com/carolzhangdc/analyze-imdb-score-with-data-mining-algorithms
+
+https://github.com/tidyverse/readxl
+

@@ -1,0 +1,379 @@
+# Análise Exploratória dos dados{.tabset .tabset-fade .tabset-pills}
+
+```{r, echo = FALSE, eval = TRUE, message=FALSE, include = TRUE}
+set.seed(123465)
+amostra1 = sample(x = 1:dim(db)[1], size = 35, replace = FALSE)
+t1 = db[amostra1,]
+datatable(t1,  rownames = amostra1,
+          options = list(searchin = TRUE, scrollX = TRUE, pageLength = 5)); remove(t1, amostra1)
+
+```
+
+          
+## Estrutura dos dados
+```{r, echo = FALSE, eval = TRUE, message=FALSE, include = TRUE}
+cat("O banco de dados possui", dim(db)[1], "observações e", dim(db)[2], "variáveis")
+```
+
+
+Excluindo algumas variáveis que não serão utilizadas.
+
+- (1) As variáveis  *color*, *director_name*, *language*, *country*, *content_rating*, em especial, foram removidas uma vez que estas não se mostraram importantes no algoritmo de importância do Random Forest de Breiman.
+
+- (2) Já as variáveis *director_facebook_likes*, *actor_3_facebook_likes*, *actor_2_name*, *actor_1_facebook_likes*, *actor_1_name*, *actor_3_name,-facenumber_in_poster*, *actor_2_facebook_likes*, *movie_imdb_link* foram extraídas de forma determinística por escolha dos autores deste.
+
+O motivo de remover as variáveis em (1) é devido à tentativa de reduzir o número de missing na base de dados. no passo 3.1 de Tratamento de NA's.
+```{r}
+#db=IMDB_ORIG
+db = db %>% select(- director_facebook_likes, -actor_3_facebook_likes, -actor_2_name, -actor_1_facebook_likes, -actor_1_name, -actor_3_name,-facenumber_in_poster, -actor_2_facebook_likes, -color, -director_name, -language, -country, -content_rating, -movie_imdb_link)
+```
+
+```{r, echo = FALSE, eval = TRUE, message=FALSE, include = TRUE}
+cat("O banco de dados agora possui", dim(db)[2], "variáveis. Ou seja, foram removidas ",dim(IMDB_ORIG)[2]-dim(db)[2], "variáveis no passo anterior.")
+```
+
+Estrutura dos dados
+```{r}
+glimpse(db) #str(db)
+```
+
+
+## Transformação de variáveis 
+
+Transformando as variáveis `imdb_score` e `aspect_ratio` em numéricas
+```{r}
+db$imdb_score = as.numeric(as.character(db$imdb_score))
+db$aspect_ratio = as.numeric(as.character(db$aspect_ratio))
+```
+
+```{r fig1, fig.cap="Histograma dos votos na plataforma IMDB"}
+hc1 = hchart(db$imdb_score, color = "#e8bb0b", name = "imdb_score") %>% 
+        hc_title(text = "Histograma dos votos na plataforma IMDB") %>%
+        hc_exporting(enabled = TRUE, filename = "Fig1-Pimenta", showTable = TRUE); hc1; remove(hc1)
+```
+
+```{r fig2, fig.cap="Histograma dos número de votos na plataforma IMDB"}
+hc2 = hchart(db$num_voted_users, color = "#786eea", name = "imdb_num_votos") %>% 
+        hc_title(text = "Histograma dos número de votos na plataforma IMDB") %>%
+        hc_exporting(enabled = TRUE, filename = "Fig2-Pimenta"); hc2; remove(hc2) 
+```
+
+Criando uma função para cálculo da moda
+```{r}
+Moda <- function(x) {
+     ux <- unique(x)
+     ux[which.max(tabulate(match(x, ux)))]
+}
+```
+
+
+```{r, echo = FALSE, eval = TRUE, message=FALSE, include = TRUE}
+cat("Média, moda e mediana da variável imdb_score são, respectivamente,",round(mean(db$imdb_score, na.rm = TRUE),2), Moda(db$imdb_score),median(db$imdb_score, na.rm = TRUE))
+```
+
+Extraindo valores da variável gênero e transformando em dummies
+```{r, message=FALSE}
+gg <- as.character(db$genres); gg <- gsub("-", "_", as.character(gg))
+
+#t <- unlist(strsplit(gg[1],split = "\\|"))
+tem1 <- data.frame() 
+for(i in 1:length(gg)){
+        tem <- tem1
+        t <- unlist(strsplit(gg[i],split = "\\|"))
+        temp <- data.frame(t)
+        tem1 <- rbind(tem,temp)
+}
+
+Gen <- unique(tem1); Gen <- gsub("-", "_", as.character(Gen$t))
+cat("Existem", length(Gen), "valores de gêneros únicos de filme no banco de dados.")
+Genname <- Gen
+
+fe <- matrix(data = 0, nrow = length(gg), ncol = length(Genname))
+fe <- data.frame(fe); colnames(fe) <- Genname
+
+i=j=0
+for(i in 1:length(gg)){
+        for(j in 1:length(Genname)){
+                g <- grepl(Genname[j], gg[i])
+                if(g == TRUE){
+                        fe[i, j] <- 1        
+                }
+        }
+}
+
+NumGen = as_tibble(rbind(apply(fe,2,sum)))
+NumGen = gather(NumGen, key = "variables", value = "num_gender")
+NumGen = NumGen[order(NumGen$num_gender, decreasing = TRUE), ]
+
+
+hc3 <- highchart() %>%
+  hc_add_series(data = NumGen$num_gender, 
+                type = "bar",
+                name = "# de filmes",
+                showInLegend = FALSE,
+                tooltip = list(valueDecimals = 0, valuePrefix = "", valueSuffix = ""), color="blue") %>%
+  hc_yAxis(title = list(text = "Quantitativo de filmes"), 
+           allowDecimals = TRUE, max = (max(NumGen$num_gender)+103),
+           labels = list(format = "{value}")) %>%
+  hc_xAxis(title = list(text = "Gênero de filme"),
+           categories = NumGen$variables,
+           tickmarkPlacement = "on",
+           opposite = FALSE) %>%
+  hc_title(text = "Quantitativo de filmes por gênero",
+           style = list(fontWeight = "bold")) %>% 
+  hc_subtitle(text = paste("")) %>%
+      hc_tooltip(valueDecimals = 2,
+                 pointFormat = "{point.y} filmes")%>%
+                 #pointFormat = "Variável: {point.x} <br> Missing: {point.y}") 
+      hc_credits(enabled = TRUE, 
+                 text = "Fonte: IMDB/KAGGLE. Elaboração: Ewerson Pimenta.",
+                 style = list(fontSize = "10px")) %>%
+  hc_exporting(enabled = TRUE, filename = "F3-filmes-genero-Pimenta")
+#hc <- hc %>% 
+#  hc_add_theme(hc_theme_darkunica())
+hc3; remove(gg,t,tem, temp, tem1,Gen, g, i, j)
+remove(hc3, Genname)
+```
+
+
+Algumas variáveis de gêneros possuem pouquíssimos filmes serão removidas do banco. São elas *Film_Noir*, *Short*, *News*, *Reality_TV* e *Game_Show*. Além delas, a variável *genres* que foi utilizada para gerar as novas variáveis (dummies) também será removida.
+```{r}
+fe$Film_Noir <- NULL
+fe$Short <- NULL
+fe$News <- NULL
+fe$Reality_TV <- NULL
+fe$Game_Show <- NULL
+db$genres <- NULL
+```
+
+Unificando a base de dados com as novas variáveis de gêneros únicos descobertos.
+```{r}
+db1 = as_tibble(cbind(as.data.frame(db),fe))
+cat("Foram inseridas ", dim(fe)[2],"novas variáveis provenientes dos gêneros únicos descobertos no passo anterior.")
+remove(fe)
+```
+
+
+Semelhante à variável de gênero, foi feito o split por palavra chave da variável keyword, esse, por sua vez, continha 6780 palavras únicas. E então, geramos uma nuvem de palavras chave, com o auxílio do pacote `wordcloud2` com o seguinte comando, após obter o data frame do nome das palavras chaves e frequência.
+
+```yaml
+library(wordcloud2)
+wordcloud2(NumKeyWord)
+```
+
+```{r, out.width = "600px",echo = FALSE, eval = TRUE, message=FALSE, include = TRUE, fig.align="center"}
+DIR1 = "E:/2018-2/IC/PROJETOS/Classificador-IMDB/RECOMMENDER-IMDB/"
+knitr::include_graphics(paste0(DIR1,"IMG/PLOTS/WordCloud.png"))
+```
+
+## Filtrando filmes a partir de 1980
+__Excluindo filmes lançados antes de 1980__
+```{r}
+hc00 = hchart(db$title_year, color = "#53a074", name = "imdb1_score") %>% 
+        hc_title(text = "Histograma do ano de publicação dos filmes") %>%
+        hc_exporting(enabled = TRUE, filename = "Fig1-Pimenta"); hc00
+remove(hc00)
+```
+
+Percebemos pelo gráfico anterior que existem poucos filmes publicados antes de 1980 e estes podem não ser representativos. Decidimos, então, por trabalhar apenas com os filmes que foram publicados a partir de 1991
+```{r}
+db1 <- db1[db1$title_year >= 1991,]
+hc01 = hchart(db1$title_year, color = "#79d8a2", name = "imdb1_score") %>% 
+        hc_title(text = "Histograma do ano de publicação dos filmes") %>%
+        hc_exporting(enabled = TRUE, filename = "Fig1-Pimenta"); hc01
+remove(hc01)
+```
+
+
+## Tratamento de NA, zeros e duplicatas
+Porcentagem de NA por variável
+```{r}
+db_miss <- db1 %>% summarise_all(funs(sum(is.na(.))/n()))
+db_miss <- gather(db_miss, key = "variables", value = "percent_missing")
+db_miss$percent_missing = 100*db_miss$percent_missing
+db_miss = db_miss[order(db_miss$percent_missing, decreasing = TRUE), ]
+#db_miss
+
+hc4 <- highchart() %>%
+  hc_add_series(data = db_miss$percent_missing, 
+                type = "bar",
+                name = "Porcentagem de missing",
+                showInLegend = FALSE,
+                tooltip = list(valueDecimals = 2, valuePrefix = "", valueSuffix = " %")) %>%
+  hc_yAxis(title = list(text = "Porcentagem de missing"), 
+           allowDecimals = TRUE, max = 20,
+           labels = list(format = "{value}%")) %>%
+  hc_xAxis(categories = db_miss$variables,
+           tickmarkPlacement = "on",
+           opposite = FALSE) %>%
+  hc_title(text = "Porcentagem de missinig por variável",
+           style = list(fontWeight = "bold")) %>% 
+  hc_subtitle(text = paste("")) %>%
+      hc_tooltip(valueDecimals = 2,
+                 pointFormat = "Missing: {point.y}")%>%
+                 #pointFormat = "Variável: {point.x} <br> Missing: {point.y}") 
+      hc_credits(enabled = TRUE, 
+                 text = "Fonte: IMDB/KAGGLE. Elaboração: Ewerson Pimenta.",
+                 style = list(fontSize = "10px")) %>%
+  hc_exporting(enabled = TRUE, filename = "Fig0-Pimenta")
+#hc <- hc %>% 
+#  hc_add_theme(hc_theme_darkunica())
+hc4; remove(hc4)
+db_miss
+```
+
+
+Removendo todas as observações que contêm NA nas variáveis gross, budget, aspect_ratio, duration, title_year, num_critic_for_reviews, num_user_for_reviews.
+```{r}
+db1 <- db1 %>% drop_na(gross, budget, aspect_ratio 
+,title_year 
+,num_critic_for_reviews, num_user_for_reviews)
+#glimpse(db1)
+
+db1 <- db1 %>% na.omit()
+db1 <- db1 %>% drop_na()
+```
+
+
+__Removendo dados duplicados__
+```{r}
+cat("Existem", sum(duplicated(db1)), "filmes duplicados na base de dados.")
+db1 <- db1[!duplicated(db1), ]
+```
+
+
+```{r REMOVE_NA, echo = FALSE, eval = TRUE, message=FALSE, include = TRUE}
+cat("O novo banco de dados, sem observações faltantes, possui", dim(db1)[1], "observações. Ou seja, no processo de remoção de valores faltantes foram perdidas", dim(db)[1]-dim(db1)[1], "observações. Finalmente, removemos todas as observações duplicadas e faltantes do banco.")
+```
+
+
+__Porcentagem de ZEROS por variável__
+```{r}
+zeros <- (colSums(db1==0)/nrow(db1)*100); var <- names(zeros)
+db_zero <- data.frame(var,zeros); rownames(db_zero) <- NULL
+db_zero <- db_zero[order(db_zero$zeros, decreasing = TRUE), ]
+
+hc4_1 <- highchart() %>%
+  hc_add_series(data = db_zero$zeros, 
+                type = "bar",
+                name = "Porcentagem de zeros",
+                showInLegend = FALSE,
+                tooltip = list(valueDecimals = 2, valuePrefix = "", valueSuffix = " %"), color="pink") %>%
+  hc_yAxis(title = list(text = "Porcentagem de zero"), 
+           allowDecimals = TRUE, max = 100,
+           labels = list(format = "{value}%")) %>%
+  hc_xAxis(categories = db_zero$var,
+           tickmarkPlacement = "on",
+           opposite = FALSE) %>%
+  hc_title(text = "Porcentagem de zeros por variável",
+           style = list(fontWeight = "bold")) %>% 
+  hc_subtitle(text = paste("")) %>%
+      hc_tooltip(valueDecimals = 2,
+                 pointFormat = "Zeros: {point.y}")%>%
+                 #pointFormat = "Variável: {point.x} <br> Missing: {point.y}") 
+      hc_credits(enabled = TRUE, 
+                 text = "Fonte: IMDB/KAGGLE. Elaboração: Ewerson Pimenta.",
+                 style = list(fontSize = "10px")) %>%
+  hc_exporting(enabled = TRUE, filename = "Fig00-Pimenta")
+#hc <- hc %>% 
+#  hc_add_theme(hc_theme_darkunica())
+hc4_1; remove(hc4_1, var, zeros)
+```
+
+Aqui podemos perceber que os zeros estão concentrados nas variáveis de gênero que são binárias e não faz sentido analizar os zeros nessas variáveis.  
+
+```{r}
+paste0("Existe uma proporção de zeros alta na variável movie_facebook_likes igual a ",round(db_zero[22,2],2), "% e, entretanto na variável cast_total_facebook_likes essa proporção é de ",round(db_zero[23,2],2),"%. POrtanto, decidimos por remover a variável movie_facebook_likes.")
+```
+
+```{r}
+db1$movie_facebook_likes <- NULL
+```
+
+
+## Weighted Rating (WR) - IMDB_score
+
+
+Um passo importante é penalizar a variável de escore `imdb_score` pelo [número de votos recebidos](https://help.imdb.com/article/imdb/track-movies-tv/faq-for-imdb-ratings/G67Y87TFYYP6TWAV#). Ver mais no estimador de [Shrinkage](https://stats.stackexchange.com/questions/6418/rating-system-taking-account-of-number-of-votes)
+
+
+$WR = \frac{v}{v+m} \times R + \frac{m}{v+m} \times C$
+
+Onde,
+
+```{r}
+R = as.numeric(db1$imdb_score)
+v = as.numeric(db1$num_voted_users)
+m = summary(db1$num_voted_users)[2] # 1st Qu.
+C = mean(db1$imdb_score)
+db1$WR = (v/(v+m))*R + (m/(v+m))*C
+remove(R,v,m,C)
+```
+
+* R = Escore médio dos votos para o título do filme dado pelos usuários do IMDB = (imdb_score)
+* v = Número de usuários que votaram = (num_voted_users)
+* m = Mínimo de votos requerido (atualmente 7.000)
+* C = O escore médio de todos os 3766 filmes (atualmente 6,5)
+
+Medidas pontuais e de dispersão de *imdb_score* e *WR*
+```{r}
+summary(db1$imdb_score)
+summary(db1$WR)
+cat("Além disso, conseguimos reduzir o desvio padrão que orignalmente era de ",round(sd(db1$imdb_score),2),",para a variável imdb_score, e agora passou a ser ",round(sd(db1$WR),2), "para a variável WR.")
+```
+
+Selecionando uma amostra aleatória (a.a.) de tamanho $n=800$ e representando em um gráfico de dispersão com valores reais vs ajustados.
+```{r}
+set.seed(123654)
+amostra0 = sample(x = 1:dim(db1)[1], size = 800, replace = FALSE)
+dbX = db1[amostra0,] %>% 
+  select(movie_title,num_voted_users,imdb_score, WR)
+  
+dss <- map(c("cross"), function(s){
+  
+  x <- as.numeric(dbX$imdb_score)
+  y <- as.numeric(dbX$WR)
+  
+  list(name = s,
+       data = list_parse(data_frame(x, y)),
+       marker = list(symbol = s, enabled = TRUE), lineColor = "#56667a")
+  
+})
+#dss[[1]]$data[amostra1]
+
+hc5 = highchart() %>% 
+  hc_chart(type = "scatter", color = "#56667a") %>% 
+  hc_title(text = "Score IMDB vs WR (calculado pelo estimador de Shrinkage)") %>%
+  hc_subtitle(text = "800 filmes selecionados via amostra aleatória simples") %>%
+  hc_xAxis(title = list(text = "x: imdb_score"), 
+           allowDecimals = TRUE, labels = list(format = "{value}★")) %>%
+  hc_yAxis(title = list(text = "y: WR (calibrado)"),
+           allowDecimals = TRUE, labels = list(format = "{value}★")) %>%
+  hc_exporting(enabled = TRUE, filename = "F3-Pimenta") %>%
+  hc_add_series_list(dss); hc5; remove(dbX, dss, amostra0)
+```
+
+Análise do cálculo de IMDB
+
+- Para filmes com # de votos recebidos MENOR que 18mil (m: votos mínimos requeridos):  
+    + imdb_score > 6,5: DECRESCIMENTO  
+    + imdb_score < 6,5: CRESCIMENTO  
+
+
+- Para filmes com # de votos recebidos MAIOR que 18mil (m: votos mínimos requeridos):  
+    + imdb_score > 6,5: DECRESCIMENTO  
+    + imdb_score < 6,5: CRESCIMENTO  
+
+
+Ou seja, para os filmes catalogados com m muito inferior a 18mil o novo escore calibrado teve maior diferentça que aqueles superior a 18 mil. Além disso, quando scores são maiores que 6,5 o WR tende a cair, caso contrário o valor pode aumentar. Quanto maior o número de votos recebidos, menor a diferença do valor de IMDB_score e WR.
+
+```{r}
+set.seed(123654)
+amostra2 = sample(x = 1:dim(db1)[1], size = 35, replace = FALSE)
+db1[amostra2,] %>% 
+  select(movie_title,num_voted_users,imdb_score, WR, budget) %>% 
+  datatable(rownames = amostra2,options = list(searchin = TRUE, scrollX = TRUE, pageLength = 5)); remove(amostra2)
+```
+
+
+------------------------------------------------------

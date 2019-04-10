@@ -1,0 +1,10 @@
+Informações sobre os arquivos contidos
+
+A pasta "PROJ1-CHURN-TELCO" contém dois arquivos html, são esses:
+
+1. "TELECOM-CHURN_Vfinal.html" diz respeito à análise descritiva dos dados e exploração;
+
+2. "analise de cluster_V2.nb.html" diz respeito à análise de cluster realizada para os dados em questão.
+
+
+3. Já a pasta PROJ2-IMDB-RFeSVM contém um único arquivo html com a rotina onde foram feitas análise exploratória dos dados em questão, descrição da base de dados e análises comparativas da geração dos dois modelos: Random Forest (RF) e Support Vector Machine (SVM), bem como as conclusões no arquivo "IMDB-Vfinal.html"

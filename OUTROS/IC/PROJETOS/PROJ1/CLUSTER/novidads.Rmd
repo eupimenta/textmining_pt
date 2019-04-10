@@ -1,0 +1,122 @@
+---
+title: "Clusterização de clientes propenços"
+output: html_notebook
+---
+
+
+## Índice
+
+    + Banco de Dados
+    + Análise Exploratória
+    + Análise de Cluster
+
+## Banco de Dados
+
+O conjunto de dados utilizado foi o de título `Telco Customer Churn` extraído da plataforma [kaggle](https://www.kaggle.com/). As informações contidas no banco são do programa de retenção de 7044 clientes de telecomunicações contendo 21 variáveis descritas a seguir:
+
+- Se deixou de ser cliente
+- Serviços aderidos por cada cada cliente mobile  
+    + qtd. de linhas  
+    + internet  
+    + segurança online  
+    + backup online  
+    + seguro  
+    + suporte técnico  
+    + TV a cabo  
+         
+- Informações da conta do cliente   
+    +  Tempo da conta  
+    +  Contrato  
+    +  Método de pagamento  
+    +  Conta online (sem impressão)  
+    +  Encargos mensais  
+    +  Total da conta  
+         
+* Informações Demográficas do cliente  
+    + Gênero  
+    + Faixa etária  
+    + Possui parceiros ou dependentes  
+
+*Os dados em questão são públicos e disponíveis para download clicando [AQUI](https://www.kaggle.com/blastchar/telco-customer-churn/home).*
+
+Lendo o BD e verificando pacotes
+```{r}
+getwd()
+db = read.csv2("WA_Fn-UseC_-Telco-Customer-Churn.csv", sep = ";", header = TRUE)
+#class(db)
+list.of.packages <- c("arules","dplyr","HardyWeinberg","cdparcoord")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+```
+
+Estrutura dos dados
+```{r}
+db$customerID =  as.character(db$customerID)
+db$tenure =  as.numeric(db$tenure)
+db$MonthlyCharges =  as.numeric(db$MonthlyCharges)
+db$TotalCharges =  as.numeric(db$TotalCharges)
+db$SeniorCitizen =  factor(db$SeniorCitizen)
+levels(db$Churn )
+str(db)
+```
+
+O banco não possui dados faltantes.
+
+
+Boxplot cruzamento de três variáveis: Sexo X Churn X Tempo de fidelidade
+```{r}
+library(highcharter)
+#pairs(db$tenure, db$MonthlyCharges, db$TotalCharges)
+hcboxplot(x = db$tenure, var = db$Churn, var2 = db$gender,
+          outliers = FALSE) %>% 
+  hc_chart(type = "column") # to put box vertical
+```
+
+
+Matriz de Correlação
+```{r}
+library(dplyr)
+test = db %>% select(tenure, MonthlyCharges, TotalCharges)
+hchart(cor(test))
+```
+
+
+
+
+
+## Análise Exploratória
+```{r}
+pe <- db[,c("gender","MonthlyCharges","tenure","TotalCharges")]
+#names(db)
+library(cdparcoord)
+#library(HardyWeinberg)
+#e <- MakeFactor(pe,c("PaymentMethod"))
+#pe <- makeFactor(pe,c("Churn"))
+pe <- discretize(pe,nlevels = 5) 
+discparcoord(pe,k=10)
+```
+
+```{r}
+library(plotly)
+db %>%
+  plot_ly(type = 'parcoords',
+          line = list(color = ~Churn),
+          dimensions = list(
+            #list(range = c(0,1),
+            #     label = 'Gender', values = ~gender),
+            #list(range = c(0,1),
+             #    label = 'Partner', values = ~Partner),
+            list(
+                 label = 'MonthlyCharges', values = ~MonthlyCharges),
+            list(
+                 label = 'TotalCharges', values = ~tenure)
+            )
+          )
+```
+ok não consegui fazer os parallel coordinates
+
+```{r}
+parcoord(db)
+library(freqparcoord)
+
+```

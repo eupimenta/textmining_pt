@@ -1,0 +1,92 @@
+---
+title: "Modelo de classificação de notas de filmes"
+subtitle: "Uma aplicação com dados da plataforma IMDB - Internet Movie DataBases -  via Random Forest (RF) e Support Vector Machine (SVM)"
+author: 
+- name: Ewerson C. Pimenta 
+  email: pimentaeu@yahoo.com
+- name: Marcos Antônio E. de Oliveira
+  email: marcoseuzbio@gmail.com
+date: "`r format(Sys.time(), 'Rio de Janeiro, %d de %B de %Y')`"
+output:
+  html_document:
+    number_sections: true
+    toc: true
+    fig_width: 10
+    code_folding: hide
+    fig_height: 4.5
+    theme: cosmo
+    highlight: tango
+csl: apa.csl
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+editor_options: 
+  chunk_output_type: console
+---
+
+# Conclusão e Considerações Finais
+
+- O nossos modelos, tanto  *RF* quanto *SVM* Se ajustaram bem aos dados quanto à classificação filmes com alta e baixa aprovação. 
+
+- O quadro a seguir apresenta o número de filmes em cada classificação segundo a base de teste, treino e inteira (movie). Aparentemente as categorias são bem balanceadas.
+
+| Base de dados          | [0, 6.5) | [6.5, 10] |
+|------------------------|----------|-----------|
+| Movie (treino + teste) | 1883     | 1883      |
+| Treino                 | 1328     | 1339      |
+| Teste                  | 555      | 544       |
+
+Ainda conseguimos obter quais são os fatores/variáveis mais importantes para análise de classificação, dentre as variáveis existentes. Abaixo citamos as top 10 variáveis mais importantes.
+
+```{r}
+hc6_1
+```
+<!--
+```{r}
+#View(head(movie))
+table(movie$WR_Grp)
+table(train2$WR_Grp)
+table(test2$WR_Grp)
+```
+-->
+
+> Para o ajuste do RF
+
+- Utilizando a base de teste, o modelo retornou através da matriz de confusão uma sensibilidade de cerca de 85% e uma especificidade de 80%. Além disso, uma acurácia obtida de 83%.
+
+- É valido ressaltar, também, que o erro OOB estimado foi de 20%.
+
+- Ainda através da matriz de confusão, o nosso modelo erra em uma menor quantidade de vezes uma classificação de filmes acima de 6,5★ (baltaaprovação). A estimativa de erro de classificação desses filmes é de 16% versus 18% de erro de classificação em filmes com alta aprovação.
+
+- Abaixo podemos verificar a matriz de confusão do ajusto do RF (com base de teste), e afirmamos que o modelo erra menos na classificação dos filmes mais bem classificados:
+
+
+| PREDITO VS REAL        | [0, 6.5) | [6.5, 10] | Erro de Classificação |
+|------------------------|----------|-----------|-----------------------|
+| [0, 6.5)               | 469      | 106       | 0.1843                |
+| [6.5, 10]              | 86       | 438       | 0.1641                |
+
+> Para o ajuste do SVM
+
+- O erro estimado foi de 14,698%, uma melhora de 5% do quando comparado com o ERRO OOB do RF.
+
+- Ainda através da matriz de confusão, o nosso modelo erra em uma menor quantidade de vezes uma classificação de filmes de acima 6,5★ (alta aprovação). A estimativa de erro de classificação desses filmes é de 12% versus 17% de erro de classificação em filmes com alta aprovação.
+
+- Abaixo podemos verificar a matriz de confusão do ajusto do RF (com base de teste), e afirmamos que o modelo erra menos na classificação dos filmes mais bem classificados:
+
+
+| PREDITO VS REAL        | [0, 6.5) | [6.5, 10] | Erro de Classificação |
+|------------------------|----------|-----------|-----------------------|
+| [0, 6.5)               | 1172     | 236       | 0.1676                |
+| [6.5, 10]              | 156      | 1103      | 0.1239                |
+
+
+> Comparações
+
+| Erro de classficação         | [0, 6.5) | [6.5, 10] |
+|------------------------------|----------|-----------|
+| Random Forest (RF)           | 0.1843   | 0.1641    |
+| Support Vector Machine (SVM) | 0.1676   | 0.1239    |
+
+Em geral o SVM classificou melhor ambos os grupos de filmes (alto e baixo), com uma diferença de até 4% de acerto nas classificações em coparação com o RF na categoria de [6.5, 10].
