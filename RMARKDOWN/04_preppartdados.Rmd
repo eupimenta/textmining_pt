@@ -1,0 +1,184 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+<!--      
+Essa Rotina é destinada a preparação dos dados a serem inputados nos diferentes modelos de classificação.
+Dito isso, iremos incluir os n principais/primeiros termos por diretoria (seguindo a estat. tf_idf) e transforma-las em variaveis binarias do modelo preditivo
+-->
+
+
+```{r}
+key_DIR = plot_diretoria_palavras_noSTOP %>%
+  group_by(DIRETORIA) %>%
+  count(DIRETORIA)
+
+ key_DIR %>%
+   kable("latex", caption = "Número de termos por diretoria", 
+        booktabs = T, format.args = list(decimal.mark = ',', big.mark = ".")) %>%
+  kable_styling(latex_options = c("striped", "hold_position"))
+```
+
+selecionando as 20 palavras mais importantes de cada uma das 4 diretorias e da categoria 'OUTROS'.
+
+```{r}
+# plot_diretoria_palavras_noSTOP$palavra <- gsub(".", "_", as.character(plot_diretoria_palavras_noSTOP$palavra))
+# devo garantir que esses termos sao unicos dentro de cada diretoria
+# devo, ainda, excluir acentos e pontos e caracteres q nao podem ser inclusos em nomes de variaveis no R
+# Posteriormente devo refazer esses passos, juntamente com o stemming no arquivo de dados a ser inputado
+termos_dir = 
+plot_diretoria_palavras_noSTOP %>%
+group_by(DIRETORIA) %>%
+top_n(10, tf_idf)
+```
+Cria, antes, uma variáveil DESCRI_PEDIDO1 que repete os passos feitos aos termos quanto ao stemming so que no texto fonte.
+```{r}
+DB$DESCRI_PEDIDO1 = DB$DESCRI_PEDIDO
+DB$DESCRI_PEDIDO1 = ptstem(rslp(DB$DESCRI_PEDIDO1))
+```
+
+
+```{r}
+fe <- matrix(data = 0, nrow = length(DB$DESCRI_PEDIDO1), ncol = length(termos_dir$palavra))
+fe <- data.frame(fe); colnames(fe) <- termos_dir$palavra
+
+i=j=0
+for(i in 1:length(DB$ID)){
+        for(j in 1:length(termos_dir$palavra)){
+                g <- grepl(termos_dir$palavra[j], DB$DESCRI_PEDIDO1[i])
+                if(g == TRUE){
+                        fe[i, j] <- 1        
+                }
+        }
+}
+
+#REMOVE A VARIAVEL geracao que apareceu em deduplicacao
+fe = fe[,-50]
+
+
+termo_dir1 = termos_dir %>%
+select(DIRETORIA, palavra) %>%
+  mutate(termo = palavra)
+
+NumTermos = as_tibble(rbind(apply(fe,2,sum)))
+NumTermos = gather(NumTermos, key = "termo", value = "Num_Pedidos")
+NumTermos = NumTermos[order(NumTermos$Num_Pedidos, decreasing = TRUE), ]
+```
+
+
+```yaml
+highchart() %>%
+  hc_add_series(data = NumTermos$Num_Pedidos, 
+                type = "bar",
+                name = "# de pedidos",
+                showInLegend = FALSE,
+                tooltip = list(valueDecimals = 0, valuePrefix = "", valueSuffix = ""), color="blue") %>%
+  hc_yAxis(title = list(text = "Quantitativo de pedidos"), 
+           allowDecimals = TRUE, max = (max(NumTermos$Num_Pedidos)+103),
+           labels = list(format = "{value}")) %>%
+  hc_xAxis(title = list(text = "Termo"),
+           categories = NumTermos$termo,
+           tickmarkPlacement = "on",
+           opposite = FALSE) %>%
+  hc_title(text = "Quantitativo de pedidos por termo (sem exclusividade)",
+           style = list(fontWeight = "bold")) %>% 
+  hc_subtitle(text = paste("")) %>%
+      hc_tooltip(valueDecimals = 2,
+                 pointFormat = "{point.y} pedidos")%>%
+                 #pointFormat = "Variável: {point.x} <br> Missing: {point.y}") 
+      hc_credits(enabled = TRUE, 
+                 text = "Fonte: CGU, e-SIC (2019). Elaboração: Ewerson Pimenta.",
+                 style = list(fontSize = "10px")) %>%
+  hc_exporting(enabled = TRUE, filename = "F3-filmes-genero-Pimenta")
+```
+
+
+```{r}
+db_modelo = as_tibble(cbind(select(DB,DIRETORIA),fe))
+```
+
+
+```yaml
+# __Porcentagem de ZEROS por variável__
+
+zeros <- (colSums(fe==0)/nrow(fe)*100); var <- names(fe)
+db_zero <- data.frame(var,zeros); rownames(db_zero) <- NULL
+db_zero <- db_zero[order(db_zero$zeros, decreasing = TRUE), ]
+
+hc4_1 <- highchart() %>%
+  hc_add_series(data = db_zero$zeros, 
+                type = "bar",
+                name = "Porcentagem de zeros",
+                showInLegend = FALSE,
+                tooltip = list(valueDecimals = 2, valuePrefix = "", valueSuffix = " %"), color="pink") %>%
+  hc_yAxis(title = list(text = "Porcentagem de zero"), 
+           allowDecimals = TRUE, max = 100,
+           labels = list(format = "{value}%")) %>%
+  hc_xAxis(categories = db_zero$var,
+           tickmarkPlacement = "on",
+           opposite = FALSE) %>%
+  hc_title(text = "Porcentagem de zeros por variável",
+           style = list(fontWeight = "bold")) %>% 
+  hc_subtitle(text = paste("")) %>%
+      hc_tooltip(valueDecimals = 2,
+                 pointFormat = "Zeros: {point.y}")%>%
+                 #pointFormat = "Variável: {point.x} <br> Missing: {point.y}") 
+      hc_credits(enabled = TRUE, 
+                 text = "Fonte: IMDB/KAGGLE. Elaboração: Ewerson Pimenta.",
+                 style = list(fontSize = "10px")) %>%
+  hc_exporting(enabled = TRUE, filename = "Fig00-Pimenta")
+#hc <- hc %>% 
+#  hc_add_theme(hc_theme_darkunica())
+hc4_1; remove(hc4_1, var, zeros)
+```
+
+
+<!--
+## Partição dos dados
+
+Particionando a base de dados em Treino e Teste, esses dois (Treino e Teste) também terão armazenados as diretorias que foram responsaveis por cada pedido via amostragem probabilística dos dados originais separadamente das bases de Treino e Teste.
+
+Para amostragem aleatória simples
+
+```{r}
+set.seed(9182345)
+ind <- sample(2, nrow(db_modelo), replace = T, prob = c(0.7, 0.3))
+train <- db_modelo[ind==1, -1]
+test <- db_modelo[ind==2, -1]
+trainMovie <- db_modelo[ind==1, 1]
+testMovie <- db_modelo[ind==2, 1]
+```
+
+Porcentagem da Distribuição dos pedidos por categorias (diretorias) nas bases de treino e teste
+```yaml
+round(table(trainMovie$DIRETORIA)/sum(table(trainMovie$DIRETORIA))*100,2)
+round(table(testMovie$DIRETORIA)/sum(table(testMovie$DIRETORIA))*100,2)
+```
+
+```yaml
+hchart(trainMovie$DIRETORIA, colorByPoint = TRUE, name = "Escore - Base Treino")
+hchart(testMovie$DIRETORIA, colorByPoint = TRUE, name = "Escore - Base Teste")
+```
+
+Existe um forte desbalanceamento entre as categorias. Tentaremos minimizar o efeito do desbalanceamento selecionando a amostra via amostragem aleatória estratificada.
+
+```yaml
+library("survey")
+strat_design <- svydesign(ids = ~1, strata = ~DIRETORIA, fpc = ~fpc, data = db_modelo)
+strat_design
+# Estimando o total de pedidos por diretoria
+svytotal(~DIRETORIA, strat_design)
+```
+
+transformando a variável resposta factor em numérica
+```{r}
+db_modelo %>% 
+  mutate(DIRETORIA = ifelse(DIRETORIA == "DEA", 1,
+                          ifelse(DIRETORIA == "DEE", 2,
+                                 ifelse(DIRETORIA == "DGC", 3, 
+                                        ifelse(DIRETORIA == "DPG", 4, 5)))))
+```
+
+# https://leobastos.files.wordpress.com/2017/10/mgest2014.pdf
+-->

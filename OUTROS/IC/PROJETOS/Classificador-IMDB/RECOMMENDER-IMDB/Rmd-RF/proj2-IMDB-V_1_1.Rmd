@@ -1,0 +1,249 @@
+---
+title: "Recomendador de Filmes"
+subtitle: "Movie Recommender: COllaborative Filtering, Shiny - IMDB - Internet Movie DataBases"
+author: 
+- name: Ewerson C. Pimenta 
+  email: pimentaeu@yahoo.com
+- name: Larissa Moraes
+  email: larissamoraes.est@gmail.com
+- name: Marcos Antônio E. de Oliveira
+  email: marcoseuzbio@gmail.com
+- name: João Pedro Menescal
+  email: jp922@hotmail.com
+date: "`r format(Sys.time(), 'Rio de Janeiro, %d de %B de %Y')`"
+output:
+  html_document:
+    number_sections: true
+    toc: true
+    fig_width: 10
+    code_folding: hide
+    fig_height: 4.5
+    theme: cosmo
+    highlight: tango
+csl: apa.csl
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+  
+  
+  
+  <!-- highlight: tango pygments kate monochrome zenburn haddock textmate -->
+  <!-- theme: cerulean, journal, flatly, readable, spacelab, united, cosmo, lumen, paper, sandston, simplex, yeti -->
+  
+  <!----------  INÍCIO CONFIG  ---------->
+  
+```{r INSTALPACK, echo = FALSE, eval = TRUE, message=FALSE, include = FALSE}
+list.of.packages <- c("arules","dplyr","HardyWeinberg","cdparcoord", "knitr", "knitLatex", "kableExtra", "tidyverse", "tidyverse", "cdparcoord", "cowplot", "ggpubr", "gridExtra", "stringi", "cluster", "factoextra", "cluster")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+```
+
+```{r READPACK, echo = FALSE, eval = TRUE, message=FALSE, include = FALSE}
+library(tidyverse)
+library(highcharter)
+library(knitr)
+library(kableExtra)
+```
+  
+# Introdução
+
+   Será contruído um sistema de recomendação de filmes 
+  
+|
+```{r, out.width = "400px",echo = FALSE, eval = TRUE, message=FALSE, include = TRUE}
+#knitr::include_graphics("D:/2018-2/IC/PROJETOS/PROJ2/RECOMMENDER-IMDB/IMG/popcorn.jpg")
+knitr::include_graphics("E:/2018-2/IC/PROJETOS/PROJ2/RECOMMENDER-IMDB/IMG/popcorn.jpg")
+```
+|
+<!--    |![](https://www.experience.panasonic.de/wp-content/uploads/2017/06/packs-of-popcorn.jpg)|
+|:---:|
+-->
+
+
+# Métodos{.tabset .tabset-fade .tabset-pills}
+
+## Banco de Dados
+
+### Descrição
+  
+  O conjunto de dados utilizado foi o de título *Telco Customer Churn* extraído da plataforma [kaggle](https://www.kaggle.com/). As informações contidas no banco são do programa de retenção de 7044 clientes de telecomunicações contendo 21 variáveis descritas a seguir:
+
+
+<!--  
+Variable Name            | Description
+---------------------|----------------------------------------------
+movie_title              | Title of the Movie
+duration                 | Duration in minutes
+director_name            | Name of the Director of the Movie
+director_facebook_likes  | Number of likes of the Director on his Facebook Page
+actor_1_name             | Primary actor starring in the movie
+actor_1_facebook_likes   | Number of likes of the Actor_1 on his/her Facebook Page
+actor_2_name             | Other actor starring in the movie
+actor_2_facebook_likes   | Number of likes of the Actor_2 on his/her Facebook Page
+actor_3_name             | Other actor starring in the movie
+actor_3_facebook_likes   | Number of likes of the Actor_3 on his/her Facebook Page
+num_user_for_reviews     | Number of users who gave a review
+num_critic_for_reviews   | Number of critical reviews on imdb
+num_voted_users          | Number of people who voted for the movie
+cast_total_facebook_likes| Total number of facebook likes of the entire cast of the movie
+movie_facebook_likes     | Number of Facebook likes in the movie page
+plot_keywords            | Keywords describing the movie plot
+facenumber_in_poster     | Number of the actor who featured in the movie poster
+color                    | Film colorization. ‘Black and White’ or ‘Color’
+genres                   | Film categorization like ‘Animation’, ‘Comedy’, ‘Romance’, ‘Horror’, ‘Sci-Fi’, ‘Action’, ‘Family’
+title_year               | The year in which the movie is released (1916:2016)
+language                 | English, Arabic, Chinese, French, German, Danish, Italian, Japanese etc
+country                  | Country where the movie is produced
+content_rating           | Content rating of the movie
+aspect_ratio             | Aspect ratio the movie was made in
+movie_imdb_link          | IMDB link of the movie
+gross                    | Gross earnings of the movie in Dollars
+budget                   | Budget of the movie in Dollars
+imdb_score               | IMDB Score of the movie on IMDB
+-->
+
+```{r, echo = FALSE, eval = TRUE, message=FALSE, include = TRUE}
+INFO = c("movie_title","Title of the Movie","duration","Duration in minutes","director_name","Name of the Director of the Movie","director_facebook_likes","Number of likes of the Director on his Facebook Page",
+        "actor_1_name","Primary actor starring in the movie","actor_1_facebook_likes","Number of likes of the Actor_1 on his/her Facebook Page","actor_2_name","Other actor starring in the movie","actor_2_facebook_likes","Number of likes of the Actor_2 on his/her Facebook Page",
+        "actor_3_name","Other actor starring in the movie","actor_3_facebook_likes","Number of likes of the Actor_3 on his/her Facebook Page","num_user_for_reviews","Number of users who gave a review","num_critic_for_reviews","Number of critical reviews on imdb",
+        "num_voted_users","Number of people who voted for the movie","cast_total_facebook_likes","Total number of facebook likes of the entire cast of the movie","movie_facebook_likes","Number of Facebook likes in the movie page","plot_keywords","Keywords describing the movie plot",
+        "facenumber_in_poster","Number of the actor who featured in the movie poster","color","Film colorization. ‘Black and White’ or ‘Color’","genres","Film categorization like ‘Animation’, ‘Comedy’, ‘Romance’, ‘Horror’, ‘Sci-Fi’, ‘Action’, ‘Family’","title_year","The year in which the movie is released (1916:2016)",
+        "language","English, Arabic, Chinese, French, German, Danish, Italian, Japanese etc","country","Country where the movie is produced","content_rating","Content rating of the movie","aspect_ratio","Aspect ratio the movie was made in","movie_imdb_link","IMDB link of the movie",
+        "gross","Gross earnings of the movie in Dollars","budget","Budget of the movie in Dollars","imdb_score", "IMDB Score of the movie on IMDB")
+# Cria matriz de INFO
+INFO = as.data.frame(matrix(INFO,byrow = T, ncol = 2))
+colnames(INFO) = c("Variables", "Description")
+library(DT)
+datatable(INFO,  
+          options = list(searchin = TRUE))
+```
+
+
+*Os dados em questão são públicos e disponíveis para download clicando [AQUI](https://www.kaggle.com/blastchar/telco-customer-churn/home).* 
+
+-------------------------------------
+
+### Pacotes e Leitura
+
+Alguns pacotes R utilizados nessa rotina
+```yaml
+library(tidyverse)
+library(highcharter)
+library(cowplot)
+library(gridExtra)
+library(gridExtra)
+library(highcharter)
+```
+
+Lendo o arquivo de dados
+```{r, message=FALSE}
+
+#RECOMEND.METADATA = readxl::read_xlsx(path = "BD/IMDB.xlsx", sheet = 1)
+#RECOMEND.METADATA = readxl::read_xlsx(path = #"D:/2018-2/IC/PROJETOS/PROJ2/RECOMMENDER-IMDB/DB/IMDB.xlsx", sheet = 1)
+RECOMEND.METADATA = readxl::read_xlsx(path = "E:/2018-2/IC/PROJETOS/PROJ2/RECOMMENDER-IMDB/DB/IMDB.xlsx", sheet = 1)
+
+db = RECOMEND.METADATA
+#class(db)
+getwd()
+```
+
+## Análise Exploratória dos dados
+
+## Estrutura e Limpeza
+
+```{r}
+cat("O banco de dados possui", dim(db)[1], "observações e", dim(db)[2], "variáveis")
+```
+
+
+```{r}
+glimpse(db) #str(db)
+```
+
+Excluindo algumas variáveis que não serão utilizadas.
+
+```{r}
+db = db %>% select(- director_facebook_likes, -actor_3_facebook_likes, -actor_2_name, -actor_1_facebook_likes, -actor_1_name, -actor_3_name,-facenumber_in_poster, -actor_2_facebook_likes)
+```
+
+```{r}
+cat("O banco de dados agora possui", dim(db)[2], "variáveis")
+```
+
+Porcentagem de NA por variável
+
+<!-- 
+```{r}
+options(repr.plot.width = 6, repr.plot.height = 4)
+missing_data <- db %>% summarise_all(funs(sum(is.na(.))/n()))
+missing_data <- gather(missing_data, key = "variables", value = "percent_missing")
+ggplot(missing_data, aes(x = reorder(variables, percent_missing), y = percent_missing, label = percent_missing)) +
+geom_bar(stat = "identity", fill = "red", aes(color = I('white')), size = 0.3)+
+xlab('Variáveis')+
+ylab('Porcentagem de valores faltantes (NA)') +
+coord_flip()+ 
+theme_bw()
+```
+-->
+
+```{r}
+db_miss = missing_data
+db_miss$percent_missing = 100*db_miss$percent_missing
+db_miss = db_miss[order(db_miss$percent_missing, decreasing = TRUE), ]
+db_miss$variables
+hc <- highchart() %>%
+  hc_add_series(data = db_miss$percent_missing, 
+                type = "bar",
+                name = "Porcentagem de missing",
+                showInLegend = FALSE,
+                tooltip = list(valueDecimals = 2, valuePrefix = "", valueSuffix = " %")) %>%
+  hc_yAxis(title = list(text = "Porcentagem de missing"), 
+           allowDecimals = TRUE, max = 20,
+           labels = list(format = "{value}%")) %>%
+  hc_xAxis(categories = db_miss$variables,
+           tickmarkPlacement = "on",
+           opposite = FALSE) %>%
+  hc_title(text = "Porcentagem de missinig por variável",
+           style = list(fontWeight = "bold")) %>% 
+  hc_subtitle(text = paste("")) %>%
+      hc_tooltip(valueDecimals = 2,
+                 pointFormat = "Missing: {point.y}")%>%
+                 #pointFormat = "Variável: {point.x} <br> Missing: {point.y}") 
+      hc_credits(enabled = TRUE, 
+                 text = "Fonte: IMDB/KAGGLE",
+                 style = list(fontSize = "10px"))
+#hc <- hc %>% 
+#  hc_add_theme(hc_theme_darkunica())
+hc
+```
+
+
+```{r}
+knitr::kable(missing_data, format = "html")
+```
+
+
+Removendo todas as observações que contêm NA.
+```{r}
+cat("Existem", sum(is.na(db$gross)), "observações faltantes na variável 'gross'")
+```
+
+Optamos por remover essas observações do banco de dados ...
+
+```{r REMOVE_NA}
+db <- db[!is.na(db),]
+#View(db[,c(1, 6, 19, 20)])
+```
+
+```{r}
+cat("Portanto, o novo banco de dados possui", dim(db)[1], "observações.")
+
+
+## Modelagem
+
+#https://www.kaggle.com/carolzhangdc/analyze-imdb-score-with-data-mining-algorithms
+  
+  
+

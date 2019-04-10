@@ -1,0 +1,117 @@
+
+### Descrição
+  
+  O conjunto de dados utilizado foi o de título *Telco Customer Churn* extraído da plataforma [kaggle](https://www.kaggle.com/). As informações contidas no banco são do programa de retenção de 7044 clientes de telecomunicações contendo 21 variáveis descritas a seguir:
+  
+- Se deixou de ser cliente
+- Serviços aderidos por cada cada cliente mobile  
+    + qtd. de linhas  
+    + internet  
+    + segurança online  
+    + backup online  
+    + seguro  
+    + suporte técnico  
+    + TV a cabo  
+
+- Informações da conta do cliente   
+    +  Tempo da conta  
+    +  Contrato  
+    +  Método de pagamento  
+    +  Conta online (sem impressão)  
+    +  Encargos mensais  
+    +  Total da conta  
+
+- Informações Demográficas do cliente  
+    + Gênero  
+    + Cidadão de terceira idade 
+    + Possui parceiros ou dependentes  
+
+*Os dados em questão são públicos e disponíveis para download clicando [AQUI](https://www.kaggle.com/blastchar/telco-customer-churn/home).* 
+
+### Pacotes
+
+Alguns pacotes R utilizados nessa rotina
+```yaml
+library(tidyverse)
+library(highcharter)
+library(cowplot)
+library(gridExtra)
+library(gridExtra)
+library(highcharter)
+```
+
+  
+### Leitura
+Lendo o arquivo de dados
+```{r, message=FALSE}
+telco = read.csv2("WA_Fn-UseC_-Telco-Customer-Churn.csv", sep = ";", header = TRUE, na.strings = "")
+#class(db)
+getwd()
+```
+
+### Estrutura
+
+7.043 observações e 21 variáveis.
+
+```{r, echo = FALSE, eval = TRUE, message=FALSE, include = FALSE}
+telco$tenure =  as.numeric(as.character(telco$tenure))
+telco$MonthlyCharges =  as.numeric(as.character(telco$MonthlyCharges))
+telco$TotalCharges =  as.numeric(as.character(telco$TotalCharges))
+```
+
+```{r}
+glimpse(telco) #str(db)
+```
+
+Porcentagem de NA por variável
+
+```{r}
+options(repr.plot.width = 6, repr.plot.height = 4)
+missing_data <- telco %>% summarise_all(funs(sum(is.na(.))/n()))
+missing_data <- gather(missing_data, key = "variables", value = "percent_missing")
+ggplot(missing_data, aes(x = reorder(variables, percent_missing), y = percent_missing)) +
+geom_bar(stat = "identity", fill = "red", aes(color = I('white')), size = 0.3)+
+xlab('Variáveis')+
+ylab('Porcentagem de valores faltantes (NA)') +
+coord_flip()+ 
+theme_bw()
+```
+
+```{r}
+cat("Existem", sum(is.na(telco$TotalCharges)), "observações faltantes na variável 'TotalCharges'")
+```
+
+Entretanto, esses valores faltantes apenas ocorrem quando a variável 'tenure' assume valor zero e consequentemente na variável 'MonthlyCharges' existem valores (diferente de zero). Ou seja, 'TotalCharges' apenas possui valores para meses (tenure) maiores ou iguais a um de permanência do cliente. 
+
+```{r}
+telco[is.na(telco$TotalCharges), c(1, 6, 19, 20)]
+```
+
+Optamos por remover essas observações do banco de dados uma vez que esses clientes não ficaram tempo suficiente (menos de um Mês) para avaliações e análises preditivas posteriores.
+
+```{r REMOVE_NA}
+telco <- telco[!is.na(telco$TotalCharges),]
+telco[is.na(telco$TotalCharges), c(1, 6, 19, 20)]
+#View(telco[,c(1, 6, 19, 20)])
+```
+
+```{r}
+cat("Portanto, o novo banco de dados possui", dim(telco)[1], "observações.")
+```
+
+
+
+<!--
+Portanto, esses valores não significam necessariamente valores faltantes, esses podem apenas ser interpretados como clientes que não ficaram tempo suficiente (menos de um mês) para que fossem gerados encargos na variável 'TotalCharges'. A princípio, essas observações não serão excluídas. -->
+
+### Preparação de dados
+
+Existem apenas 3 variáveis contínuas no banco de dados ('Tenure', 'MonthlyCharges' e 'TotalCharges'). 'SeniorCitizen' está em formato de variável inteira (0 ou 1) e este será modificado para categórica (factor).
+```{r}
+telco <- telco[complete.cases(telco),]
+telco$SeniorCitizen <- ifelse(telco$SeniorCitizen==1, 'Yes', 'No')
+```
+
+```{r}
+knitr::kable(sapply(telco, typeof))
+```

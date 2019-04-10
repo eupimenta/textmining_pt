@@ -1,0 +1,147 @@
+---
+title: "Modelo de classificação de notas de filmes"
+subtitle: "Uma aplicação com dados da plataforma IMDB - Internet Movie DataBases -  via Random Forest (RF) e Support Vector Machine (SVM)"
+author: 
+- name: Ewerson C. Pimenta 
+  email: pimentaeu@yahoo.com
+- name: Marcos Antônio E. de Oliveira
+  email: marcoseuzbio@gmail.com
+date: "`r format(Sys.time(), 'Rio de Janeiro, %d de %B de %Y')`"
+output:
+  html_document:
+    number_sections: true
+    toc: true
+    fig_width: 10
+    code_folding: hide
+    fig_height: 4.5
+    theme: cosmo
+    highlight: tango
+csl: apa.csl
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+editor_options: 
+  chunk_output_type: console
+---
+
+<!-- Alguns temas e highlights interessantes
+      highlight: tango pygments kate monochrome zenburn haddock textmate
+      theme: cerulean, journal, flatly, readable, spacelab, united, cosmo, lumen, paper, sandston, simplex, yeti -->
+  
+  
+<!--
+*https://www.kaggle.com/carolzhangdc/analyze-imdb-score-with-data-mining-algorithms*
+*https://www.kaggle.com/philippsp/book-recommender-collaborative-filtering-shiny  *
+*https://www.kaggle.com/pimentaeu/kernels/scripts/new?forkParentScriptVersionId=1563912*  
+*https://philippsp.shinyapps.io/BookRecommendation/*
+*https://www.kaggle.com/gaborfodor/kaggle-trends*
+-->
+  
+  <!----------  INÍCIO CONFIG  ---------->
+  
+```{r TEMPO}
+ptm = proc.time()
+```
+
+  
+```{r INSTALPACK, echo = FALSE, eval = TRUE, message=FALSE, include = FALSE}
+list.of.packages <- c("arules","dplyr","HardyWeinberg","cdparcoord", "knitr", "knitLatex", "kableExtra", "tidyverse", "tidyverse", "cdparcoord", "cowplot", "ggpubr", "gridExtra", "stringi", "cluster", "factoextra", "cluster", "randomForest", "rpart.plot", "DT", "keras", "caret", "highcharter", "wordcloud", "e1071", "icon", "wordcloud2")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+remove(list.of.packages, new.packages)
+```
+
+```{r READPACK, echo = FALSE, eval = TRUE, message=FALSE, include = FALSE}
+#library(gridExtra)          # Organiza e posiciona múltiplas tables e/ou plots
+library(tidyverse)          # Manipulação de banco de dados e análise exploratória
+library(highcharter)        # visualização Gráfica
+library(DT)                 # Construção de Tabelas 
+library(knitr)              # Opções Rmarkdown (inclusão de tabelas, imagens, etc.)
+#library(kableExtra)         # Construção de Tabelas 
+library(rpart.plot)         # Recursive Partitioning and Regression Trees
+library(randomForest)       # Modelo Random Forest
+#library(corrplot)           # Matriz de correlação - Visualização gráfica
+library(wordcloud2)         # Numvem de palavras (Word Cloud)
+library(caret)              # Matriz de confusão (Confusion Matrix) 
+library(rpart)
+#install.packages("devtools")
+#devtools::install_github("ropenscilabs/icon")
+library(icon)
+```
+
+
+```{r READMETADATA, echo = FALSE, eval = TRUE, message=FALSE, include = FALSE}
+# Lendo o arquivo de dados
+opts_chunk$set(root.dir = 'E:/2018-2/IC/PROJETOS/Classificador-IMDB/RECOMMENDER-IMDB/')
+DIR = setwd("E:/2018-2/IC/PROJETOS/Classificador-IMDB/RECOMMENDER-IMDB/")
+RECOMMEND.METADATA = read.csv2(file = "DB/movie_metadata.csv", 
+                               sep=',', header = TRUE, encoding = 'UTF-8')
+db = RECOMMEND.METADATA
+#View(db[1:50,])
+#class(db)
+#getwd()
+```
+
+<!-- https://fontawesome.com/icons?d=gallery  -->
+`r fa_coffee(colour = "#1FA67A", size = 2)` + `r fa_r_project(colour = "#384CB7", size = 2)` + `r fa_chart_line(colour = "#f7a12a", size = 2)` = `r fa_heart(colour = "red", size = 2)`
+
+<!----------  FIM CONFIG  ---------->
+
+-------------------------------------
+
+```{r, out.width = "400px",echo = FALSE, eval = TRUE, message=FALSE, include = TRUE, fig.align="center"}
+knitr::include_graphics("E:/2018-2/IC/PROJETOS/Classificador-IMDB/RECOMMENDER-IMDB/IMG/popcorn.jpg")
+```
+
+
+__Pacotes e Leitura__
+
+Alguns pacotes R utilizados nessa rotina
+```yaml
+library(tidyverse)          # Manipulação de banco de dados e análise exploratória
+library(highcharter)        # visualização Gráfica
+library(DT)                 # Construção de Tabelas 
+library(knitr)              # Opções Rmarkdown (inclusão de tabelas, imagens, etc.)
+library(kableExtra)         # Construção de Tabelas 
+library(rpart.plot)         # Recursive Partitioning and Regression Trees
+library(randomForest)       # Modelo Random Forest
+library(corrplot)           # Matriz de correlação - Visualização gráfica
+library(wordcloud2)         # Numvem de palavras (Word Cloud)
+library(caret)              # Matriz de confusão (Confusion Matrix) 
+library(rpart)
+#devtools::install_github("ropenscilabs/icon")
+library(icon)
+```
+-------------------------------------
+
+<!-- # Introdução --->
+```{r Introd, child = '01.Introducao.Rmd'}
+```
+
+<!-- # Banco de Dados --->
+```{r BD, child = '02.BD.Rmd'}
+```
+
+<!-- # Análise Exploratória --->
+```{r ExploraDados, child = '03.ExploraDados.Rmd'}
+```
+
+<!-- # Preparação e Partição dos Dados --->
+```{r ExploraDados, child = '04.Particao.Rmd'}
+```
+
+> MODELAGEM
+
+<!-- # Preparação e Partição dos Dados --->
+```{r ExploraDados, child = '05.RF.Rmd'}
+```
+
+# Modelagem 2 - Support Vector Machine (SVM)
+
+# Conclusão e Considerações Finais
+
+Tempo de execução
+```{r}
+proc.time() -ptm
+```

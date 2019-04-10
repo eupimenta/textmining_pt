@@ -1,0 +1,171 @@
+
+<!--      
+Essa Rotina é destinada a parte dos códigos necessários para implementação dos modelos preditivos cuja variável resposta é a DIRETORIA (variável categórica)
+-->
+
+### Partição dos dados
+
+Particionando a base de dados em Treino e Teste, esses dois (Treino e Teste) também terão armazenados as diretorias que foram responsaveis por cada pedido via amostragem probabilística dos dados originais separadamente das bases de Treino e Teste.
+
+Para amostragem aleatória simples
+
+```{r}
+intrain <- createDataPartition(y = db_modelo$DIRETORIA, p = 0.65, list = FALSE)
+training <- db_modelo[intrain,]
+testing <- db_modelo[-intrain,]
+```
+
+
+
+### Modelagem 1 - Random Forest (RF)
+
+#### Random Forest (RF) - Metodologia
+
+__Descrição__
+1. Random Forest foi desenvolvido para agregar árvores de decisão (modelo de classificação);  
+2. Pode ser usado para modelo de classificação (p/ var. resposta categórica) ou regressão (no caso de haver variável resposta contínua);  
+3. Evita *overfitting*;  
+4. Permite trabalhar com um largo número de características de um conjunto de dados;  
+5. Auxilia na seleção de variáveis baseada em um algoritmo que calcula a importância por variável (assim, tendo conhecimento de quais variáveis são mais importantes, podemos usar essa informação para outros modelos de classificação);  
+6. User-friendly: apenas 2 parâmetros livres:
+
+- Trees - ntrees, default 500 (Nº de árvores);
+- Variáveis selecionadas via amostragem aleatória candidatas à cada "split"  (quebra da árvore) - mtry, default
+    $\sqrt{p}$ p/ classificação e $\frac{p}{3}$
+    p/ regressão (p: nº de features/variáveis);
+
+
+__Passo-a-Passo__
+
+É realizado em 3 passos:
+
+1. Desenha as amostras via bootstrap do número de árvores *ntrees*;  
+2. Para cada amostra via bootstrap, cresce o número de árvores "un-puned" para a escolha da melhor quebra da árvore baseado na amostra aleatória do valor predito de mtry a cada nó da árvore;  
+- 3. Faz classificação de novos valores usando a maioria de votos p/ classificação e usa a média p/ regressão baseada nas amostras de ntrees.
+
+
+#### Random Forest - Aplicação e Resultados
+
+Inicialmente utilizaremos o pacote `randomForest` que implmenta o algoritmo de Random Forest de Breiman (baseado na clusterização de Breiman, originalmente codificada em Fortran) que tem por finalidade classificar e/ou criar regressão. Além disso, pode ser usado em um modelo não supervisionado para avaliar proximidades entre pontos. 
+
+Estamos usando, a partir daqui, a base de treino.
+```{r}
+#library(randomForest)
+#library(rpart)
+#library(rpart.plot)
+#rf <- randomForest(proximity = T,ntree = 38,do.trace = T,WR~.,data=training)
+set.seed(9984512)
+# Training with classification tree
+rf <- rpart(DIRETORIA ~ ., data=training, method="class", xval = 4)
+print(rf, digits = 3)
+attributes(rf)
+```
+
+
+```{r}
+# Predict the testing set with the trained model 
+predictions1 <- predict(rf, testing, type = "class")
+
+# Accuracy and other metrics
+confusionMatrix(predictions1, as.factor(testing$DIRETORIA))
+```
+
+
+Olhando as 6 primeiras observações real X predito
+```{r}
+p1 <- predict(rf,training)
+head(p1)
+head(training$DIRETORIA)
+```
+
+
+Selecionando uma árvore
+```{r}
+rp <- rpart::rpart(formula = DIRETORIA~.,data=training)
+#rpart::plotcp(rp)
+rpart.plot(rp)
+rpart.plot.version1(rp)
+```
+
+<!--
+### REF
+# https://rstudio-pubs-static.s3.amazonaws.com/245066_f7b5962e8ab84594829b84f06ced39b6.html
+# https://www.r-bloggers.com/my-intro-to-multiple-classification-with-random-forests-conditional-inference-trees-and-linear-discriminant-analysis/
+# https://cran.r-project.org/web/packages/randomForest/randomForest.pdf
+
+--->
+```yaml
+set.seed(09986755)
+rf1 <- randomForest(DIRETORIA ~ ., data=training,
+                    importance = TRUE,
+                    proximity = TRUE)
+```                    
+                    
+
+##### Tuning do modelo
+
+a partir de n = 200 árvores o erro OOB tende a estabilizar
+
+```{r, include=FALSE, message=FALSE}
+# Tune mtry
+x = as.data.frame(training[,-1])
+y = (as.factor(training$DIRETORIA))
+t <- tuneRF(x = x, y = y,
+       stepFactor = 0.24,
+       plot = TRUE,
+       ntreeTry = 200,
+       trace = TRUE,
+       improve = 0.05)
+```
+
+Aparentemente mtry = 30 é um bom palpite
+
+Reescrevendo, então, o modelo
+
+```{r}
+set.seed(09986755)
+# Training with classification tree
+rf2 <- randomForest(as.factor(DIRETORIA) ~ ., data=training,
+                    ntree = 200, 
+                    mtry = 30, 
+                    importance = TRUE,
+                    proximity = TRUE)
+rf2
+
+# Predict the testing set with the trained model
+predictions2 <- predict(rf2, testing, type = "class")
+
+# Accuracy and other metrics
+confusionMatrix(predictions2, as.factor(testing$DIRETORIA))
+```
+
+```yaml
+RF_importance = randomForest::importance(rf2)[order(randomForest::importance(rf2)[,1], decreasing = TRUE), ]
+randomForest::varImpPlot(rf2)
+```
+
+Taxa de Erro Random Forest
+```{r}
+plot(rf2)
+legend('topright', colnames(rf2$err.rate), col=1:5, fill=1:5)
+```
+
+Histograma do Número de nós por árvore
+```{r}
+hist(treesize(rf2), probability = T,
+     main = "Distribuição do nº de nós por ávore",
+     col = "green")
+```
+
+
+```{r}
+edit(MDSplot)
+fig.align="center"
+(MDIM_treino = MDSplot(rf2, training$DIRETORIA, pch=20))
+#(MDIM_teste = MDSplot(rf2, testing$DIRETORIA, pch=20))
+sum(MDIM_treino$eig[1:2])
+```
+
+
+
+

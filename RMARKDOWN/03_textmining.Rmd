@@ -154,13 +154,6 @@ PROP_PALAVRA = bind_rows(mutate(DEE, DIRETORIA = "DEE"),
 -->
 
 
-```{r, child="03_1_compara2a2.Rmd"}
-
-```
-
-
-
-
 - Zipf's law
 ```{r}
 freq_by_rank <- diretoria_palavras %>%
@@ -222,7 +215,8 @@ select(DESCRI_PEDIDO) %>%
 Uma limpeza removendo palavras sem significado semântico (**stopwords**) pode auxiliar o algoritmo a retornar palavras ainda mais acertivas
 
 
-### Radicais
+### Stemming
+
 Podemos diminuir redundâncias por parte do algoritmo ensinando-o a compreender palavras que podem estar escritas de forma diferente mas que em significado semântico são semelhantes. Para isso, analisamos o radical de palavras com um mesmo prefixo mas com sufixos diferentes seja por quisistos como gênero ou plural.
 
 Exemplos:
@@ -233,6 +227,122 @@ região $\propto$ regiões
 
 `Falta implementar`
 
+Usando o pacote `ptstem`
+```{r}
+library(ptstem)
+ptstem(DB$DESCRI_PEDIDO[227])
+stemming1 = ptstem(DB$DESCRI_PEDIDO)
+#ptstem(diretoria_palavras$palavra)
+```
+
+<!--
+#### Filtrando um pedaço de texto
+```{r}
+DB %>%
+filter(str_detect(DESCRI_PEDIDO, "energética")) %>%
+select(DESCRI_PEDIDO) %>%
+head()
+```
+-->
+
+#### Frequência de palavras por diretoria
+```{r}
+diretoria_palavras_stem1 <- DB %>%
+  mutate(DESCRI_PEDIDO = stemming1) %>%
+  unnest_tokens(palavra, DESCRI_PEDIDO) %>%
+  count(palavra, sort = TRUE) %>%
+  ungroup()
+```
+
+```{r}
+cat(paste0("Utilizando o algoritmo de stemming do pacote 'ptstem' o número de palavras chaves sem stemming reduziu de ", dim(diretoria_palavras)[1], " para ", dim(diretoria_palavras_stem1)[1], ", após stemming. Uma redução de ", round(100-dim(diretoria_palavras_stem1)[1]*100/dim(diretoria_palavras)[1],0),"%."))
+```
+
+
+Usando o pacote `rslp`
+```{r}
+library(rslp)
+rslp(DB$DESCRI_PEDIDO[227])
+stemming2 = rslp(DB$DESCRI_PEDIDO)
+```
+
+#### Frequência de palavras por diretoria
+```{r}
+diretoria_palavras_stem2 <- DB %>%
+  mutate(DESCRI_PEDIDO = stemming2) %>%
+  unnest_tokens(palavra, DESCRI_PEDIDO) %>%
+  count(palavra, sort = TRUE) %>%
+  ungroup()
+```
+
+```{r}
+cat(paste0("Utilizando o algoritmo de stemming do pacote 'rslp' o número de palavras chaves sem stemming reduziu de ", dim(diretoria_palavras)[1], " para ", dim(diretoria_palavras_stem2)[1], ", após stemming. Uma redução de ", round(100-dim(diretoria_palavras_stem2)[1]*100/dim(diretoria_palavras)[1],0),"%."))
+```
+
+
+Uma redução considerável no número de termos ocorreu ao usar o algoritmo `ptstem`, cerca de 55% de redução de termos versus 38% utilziando o algoritmo `rslp`. 
+
+Vale ressaltar, tabmbém, o tempo de processamento que ambos os algoritmos requerem.
+
+```{r}
+temp_stem1 = proc.time()
+test0 = ptstem(DB$DESCRI_PEDIDO)
+tempo_stem1 = proc.time() - temp_stem1
+remove(teste0)
+```
+
+```{r}
+temp_stem2 = proc.time()
+teste00 = rslp(DB$DESCRI_PEDIDO)
+tempo_stem2 = proc.time() - temp_stem2
+remove(teste00)
+```
+
+
+O tempo decorrido para processamento do algoritmo do `ptstem` foi de aproximadamente 12,4 segundos versus 1,0 segundo decorrido para o processamento do algoritmo do `rslp`. Logo, o `rslp` é quase 13 vezes mais eficiente em termos de tempo de processamento. Além disso, o `rslp` remove acentuações e caracteres como "ç". Isso irá nos ajudar mais a frente quando utilizarmos os principais termos como variáveis binárias e preditoras do modelo de classificação.
+
+Entretanto, o algoritmo mais lento, `ptstem`, foi mais interessante em termos de redução do número de termos únicos, cerca de 22% menos termos em relação ao outro algoritmo. Além disso, por se tratar de uma base de dados relativamente pequena, 565 pedidos, e o alto poder de processamento da máquina utilizada para esse estudo.
+
+Optamos, portanto, por utilizar ambos algoritmos. Vamos, primeiro, aplicar o removedor de sufixos da lingua portuguesa `rslp` seguido do `ptstem`.
+
+#### Frequência de palavras por diretoria
+```{r}
+stemming3 = ptstem(stemming2)
+diretoria_palavras_stem3 <- DB %>%
+  mutate(DESCRI_PEDIDO = stemming3) %>%
+  unnest_tokens(palavra, DESCRI_PEDIDO) %>%
+  count(DIRETORIA, palavra, sort = TRUE) %>%
+  ungroup()
+#diretoria_palavras
+```
+
+Vamos, agora, plotar as quinze palavras mais relevantes de acordo com a estatística __tf_idf__, por diretoria
+```{r, fig.width=9, fig.height=7}
+plot_diretoria_palavras_stem <- diretoria_palavras_stem3 %>%
+  bind_tf_idf(palavra, DIRETORIA, n) %>%
+  arrange(desc(tf_idf)) %>%
+  mutate(palavra = factor(palavra, levels = rev(unique(palavra)))) %>%
+  mutate(DIRETORIA = factor(DIRETORIA, levels = c("DEA",
+                                                  "DEE",
+                                                  "DGC",
+                                                  "DPG",
+                                                  "OUTROS")))
+#View(head(plot_diretoria_palavras))
+#jpeg("02_freq_palavras_dir.jpeg")
+plot_diretoria_palavras_stem %>%
+group_by(DIRETORIA) %>%
+top_n(15, tf_idf) %>%
+ungroup() %>%
+mutate(palavra = reorder(palavra, tf_idf)) %>%
+ggplot(aes(palavra, tf_idf, fill = DIRETORIA)) +
+geom_col(show.legend = FALSE) +
+labs(x = NULL, y = "tf-idf") +
+facet_wrap(~DIRETORIA, ncol = 2, scales = "free") +
+coord_flip() + 
+scale_y_continuous(labels=gcomma)
+#dev.off()
+```
+
 
 ### Stopwords
 Com o arquivo de `stopwords`previamente inserido vamos, primeiramente, transforma-lo em um data_frame a fim de futuramente utilizá-lo para extrair do texto palavras em comum.
@@ -240,7 +350,7 @@ Com o arquivo de `stopwords`previamente inserido vamos, primeiramente, transform
 #### Freq. de palavras sem **stopwords** por diretoria
 ```{r}
 mystopwords <- data_frame(palavra = stopwords_pt)
-diretoria_palavras_noSTOP <- anti_join(diretoria_palavras, mystopwords, by = "palavra")
+diretoria_palavras_noSTOP <- anti_join(diretoria_palavras_stem3, mystopwords, by = "palavra")
 #View(head(diretoria_palavras_noSTOP))
 ```
 
@@ -260,7 +370,7 @@ plot_diretoria_palavras_noSTOP <- diretoria_palavras_noSTOP %>%
 #jpeg("03_freq_palavras_dir_nostop.jpeg")
 plot_diretoria_palavras_noSTOP %>%
 group_by(DIRETORIA) %>%
-top_n(10, tf_idf) %>%
+top_n(15, tf_idf) %>%
 ungroup() %>%
 mutate(palavra = reorder(palavra, tf_idf)) %>%
 ggplot(aes(palavra, tf_idf, fill = DIRETORIA)) +
@@ -272,6 +382,9 @@ scale_y_continuous(labels=gcomma)
 #dev.off()
 ```
 
+```{r, child="03_1_compara2a2.Rmd"}
+
+```
 
 ### Usando bigram para n=2 palavras por token
 #### Frequência de palavras por diretoria

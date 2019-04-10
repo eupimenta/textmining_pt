@@ -1,0 +1,335 @@
+---
+title: "Programa de retenção de clientes de telecomunicações"
+subtitle: "R Notebook"
+author: "Ewerson C. Pimenta e Marcos Antônio E. de Oliveira"
+date: "`r format(Sys.time(), 'Rio de Janeiro, %d de %B de %Y')`"
+output:
+    html_document:
+    highlight: tango
+    mathjax: null
+    number_sections: yes
+    theme: lumen
+    toc: yes
+    toc_float: yes
+    code: hide
+---
+  
+  
+  
+  <!-- highlight: tango pygments kate monochrome zenburn haddock textmate -->
+  <!-- theme: cerulean, journal, flatly, readable, spacelab, united, cosmo, lumen, paper, sandston, simplex, yeti -->
+  
+  <!----------  INÍCIO CONFIG  ---------->
+  
+```{r INSTALPACK, echo = FALSE, eval = TRUE, message=FALSE, include = FALSE}
+list.of.packages <- c("arules","dplyr","HardyWeinberg","cdparcoord", "knitr", "knitLatex", "kableExtra", "tidyverse", "tidyverse", "cdparcoord", "cowplot")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+```
+
+```{r READPACK, echo = FALSE, eval = TRUE, message=FALSE, include = FALSE}
+library(highcharter)
+library(knitr)
+library(knitLatex)
+library(kableExtra)
+library(tidyverse)
+library(cdparcoord)
+library(cowplot)
+```
+  
+  
+## Banco de Dados
+  
+  Essa análise tem como principal foco verificar padrões e coomportamentos em clientes de telecomunicações que possuem maior propenção a deixar de ser cliente da empresa (sair da base / migração de clientes). Através de análise exploratória de dados incia-se um processo de descoberta dos dados e possíveis variáveis que viabilizam o reconhecimento de padrões de clientes de telco e, posteriormente, o uso de técnicas de análise preditiva para determinar os clientes que com maior probabilidade irão migrar.
+  
+### Descrição
+  
+  O conjunto de dados utilizado foi o de título *Telco Customer Churn* extraído da plataforma [kaggle](https://www.kaggle.com/). As informações contidas no banco são do programa de retenção de 7044 clientes de telecomunicações contendo 21 variáveis descritas a seguir:
+  
+- Se deixou de ser cliente
+- Serviços aderidos por cada cada cliente mobile  
+    + qtd. de linhas  
+    + internet  
+    + segurança online  
+    + backup online  
+    + seguro  
+    + suporte técnico  
+    + TV a cabo  
+
+- Informações da conta do cliente   
+    +  Tempo da conta  
+    +  Contrato  
+    +  Método de pagamento  
+    +  Conta online (sem impressão)  
+    +  Encargos mensais  
+    +  Total da conta  
+
+- Informações Demográficas do cliente  
+    + Gênero  
+    + Faixa etária  
+    + Possui parceiros ou dependentes  
+
+*Os dados em questão são públicos e disponíveis para download clicando [AQUI](https://www.kaggle.com/blastchar/telco-customer-churn/home).* 
+
+### Bibliotecas R
+```{r}
+library(tidyverse)
+library(highcharter)
+library(cowplot)
+```
+
+  
+### Carregando dados
+```{r, message=FALSE}
+telco = read.csv2("WA_Fn-UseC_-Telco-Customer-Churn.csv", sep = ";", header = TRUE, na.strings = "")
+#class(db)
+```
+
+### Estrutura
+
+7.043 observações e 21 variáveis.
+```{r}
+glimpse(telco) #str(db)
+```
+
+Porcentagem de NA por variável
+
+```{r}
+options(repr.plot.width = 6, repr.plot.height = 4)
+missing_data <- telco %>% summarise_all(funs(sum(is.na(.))/n()))
+missing_data <- gather(missing_data, key = "variables", value = "percent_missing")
+ggplot(missing_data, aes(x = reorder(variables, percent_missing), y = percent_missing)) +
+geom_bar(stat = "identity", fill = "red", aes(color = I('white')), size = 0.3)+
+xlab('Variáveis')+
+ylab('Porcentagem de valores faltantes (NA)') +
+coord_flip()+ 
+theme_bw()
+```
+
+```{r}
+cat("Existem", sum(is.na(telco$TotalCharges)), "observações faltantes na variável 'TotalCharges'")
+```
+Entretanto, esses valores faltantes apenas ocorrem quando a variável 'tenure' assume valor zero e consequentemente na variável 'MonthlyCharges' existem valores (diferente de zero). Ou seja, 'TotalCharges' apenas possui valores para meses (tenure) maiores ou iguais a um de permanência do cliente. 
+
+Portanto, esses valores não significam necessariamente valores faltantes, esses podem apenas ser interpretados como clientes que não ficaram tempo suficiente (menos de um mês) para que fossem gerados encargos na variável 'TotalCharges'. A princípio, essas observações não serão excluídas.
+
+### Preparação de dados
+
+Existem apenas 3 variáveis contínuas no banco de dados ('Tenure', 'MonthlyCharges' e 'TotalCharges'). 'SeniorCitizen' está em formato de variável inteira (0 ou 1) e este será modificado para categórica (factor).
+```{r}
+telco$tenure =  as.numeric(as.character(telco$tenure))
+telco$MonthlyCharges =  as.numeric(as.character(telco$MonthlyCharges))
+telco$TotalCharges =  as.numeric(as.character(telco$TotalCharges))
+telco <- telco[complete.cases(telco),]
+telco$SeniorCitizen <- ifelse(telco$SeniorCitizen==1, 'Yes', 'No')
+```
+## Análise Exploratória
+
+```{r}
+glimpse(telco)
+```
+
+Visualizando, primeiramente, a variável categórica resposta de interesse 'Churn'. Onde `Yes` significa que o cliente migrou (deixou de ser cliente) e `No` que ele permanece como cliente.
+
+Mais especificamente, pelo 'Churn' fica claro o quantitativo de clientes que migraram no último mes. 
+Cerca de 26% dos clientes deixaram de ser atendido pelos serviços da empresa no último mes.
+
+```{r}
+options(repr.plot.width = 6, repr.plot.height = 4)
+telco %>% 
+group_by(Churn) %>% 
+summarise(Count = n())%>% 
+mutate(percent = prop.table(Count)*100)%>%
+ggplot(aes(reorder(Churn, -percent), percent), fill = Churn)+
+geom_col(fill = c("#FC4E07", "#E7B800"))+
+geom_text(aes(label = sprintf("%.2f%%", percent)), hjust = 0.01,vjust = -0.5, size =3)+ 
+theme_bw()+  
+xlab("") + 
+ylab("Porcentagem")+
+ggtitle("Churn (%)")
+```
+
+- Gênero - A porcentagem de churn é praticamente a mesma entre gêneros masculino e feminino.
+- A porcentagem de churn é maior entre os cidadãos de terceira idade (senior citizens)
+- Clientes com parceiros e dependentes têm menores taxas de Churn comparadas àquele que não tem parceiros e dependentes.
+
+<!--
+```{r}
+options(repr.plot.width = 12, repr.plot.height = 8)
+plot_grid(ggplot(telco, aes(x=gender,fill=Churn))+ geom_bar(), 
+          ggplot(telco, aes(x=SeniorCitizen,fill=Churn))+ geom_bar(position = 'fill'),
+          ggplot(telco, aes(x=Partner,fill=Churn))+ geom_bar(position = 'fill'),
+          ggplot(telco, aes(x=Dependents,fill=Churn))+ geom_bar(position = 'fill'),
+          ggplot(telco, aes(x=PhoneService,fill=Churn))+ geom_bar(position = 'fill'),
+          ggplot(telco, aes(x=MultipleLines,fill=Churn))+ geom_bar(position = 'fill')+theme_bw()+
+          scale_x_discrete(labels = function(x) str_wrap(x, width = 10)),
+          align = "h")
+```
+-->
+
+```{r}
+library(ggpubr)
+p1 = ggplot(telco, aes(x=gender,fill=Churn))+ geom_bar()
+p2 = ggplot(telco, aes(x=SeniorCitizen,fill=Churn))+ geom_bar(position = 'fill')
+p3 = ggplot(telco, aes(x=Partner,fill=Churn))+ geom_bar(position = 'fill')
+p4 = ggplot(telco, aes(x=Dependents,fill=Churn))+ geom_bar(position = 'fill')
+p5 = ggplot(telco, aes(x=PhoneService,fill=Churn))+ geom_bar(position = 'fill')
+p6 = ggplot(telco, aes(x=MultipleLines,fill=Churn))+ geom_bar(position = 'fill')+theme_bw()
+ggarrange(p1, p2, p3, p4, p5,p6, ncol=3, nrow=3, common.legend = TRUE, legend="right")
+```
+
+
+Churn rate is much higher in case of Fiber Optic InternetServices.
+Customers who do not have services like No OnlineSecurity , OnlineBackup and TechSupport have left the platform in the past month.
+
+<!--
+```{r}
+options(repr.plot.width = 12, repr.plot.height = 8)
+plot_grid(ggplot(telco, aes(x=InternetService,fill=Churn))+ geom_bar(position = 'fill')+ 
+          scale_x_discrete(labels = function(x) str_wrap(x, width = 10)), 
+          ggplot(telco, aes(x=OnlineSecurity,fill=Churn))+ geom_bar(position = 'fill')+
+          scale_x_discrete(labels = function(x) str_wrap(x, width = 10)),
+          ggplot(telco, aes(x=OnlineBackup,fill=Churn))+ geom_bar(position = 'fill')+
+          scale_x_discrete(labels = function(x) str_wrap(x, width = 10)),
+          ggplot(telco, aes(x=DeviceProtection,fill=Churn))+ geom_bar(position = 'fill')+
+          scale_x_discrete(labels = function(x) str_wrap(x, width = 10)),
+          ggplot(telco, aes(x=TechSupport,fill=Churn))+ geom_bar(position = 'fill')+
+          scale_x_discrete(labels = function(x) str_wrap(x, width = 10)),
+          ggplot(telco, aes(x=StreamingTV,fill=Churn))+ geom_bar(position = 'fill')+theme_bw()+
+          scale_x_discrete(labels = function(x) str_wrap(x, width = 10)),
+          align = "h")
+```
+-->
+
+
+```{r}
+p2.1 = ggplot(telco, aes(x=InternetService,fill=Churn))+ geom_bar(position = 'fill') + scale_x_discrete(labels = function(x) str_wrap(x, width = 10))
+p2.2 = ggplot(telco, aes(x=OnlineSecurity,fill=Churn))+ geom_bar(position = 'fill') + scale_x_discrete(labels = function(x) str_wrap(x, width = 10))
+p2.3 = ggplot(telco, aes(x=OnlineBackup,fill=Churn))+ geom_bar(position = 'fill') + scale_x_discrete(labels = function(x) str_wrap(x, width = 10))
+p2.4 = ggplot(telco, aes(x=DeviceProtection,fill=Churn))+ geom_bar(position = 'fill') + scale_x_discrete(labels = function(x) str_wrap(x, width = 10))
+p2.5 = ggplot(telco, aes(x=TechSupport,fill=Churn))+ geom_bar(position = 'fill') + scale_x_discrete(labels = function(x) str_wrap(x, width = 10))
+p2.6 = ggplot(telco, aes(x=StreamingTV,fill=Churn))+ geom_bar(position = 'fill')+theme_bw()+scale_x_discrete(labels = function(x) str_wrap(x, width = 10))
+ggarrange(p1, p2, p3, p4, p5,p6, ncol=3, nrow=3, common.legend = TRUE, legend="right")
+```
+
+A larger percent of Customers with monthly subscription have left when compared to Customers with one or two year contract.
+Churn percent is higher in case of cutsomers having paperless billing option.
+Customers who have ElectronicCheck PaymentMethod tend to leave the platform more when compared to other options.
+
+<!--
+```{r}
+plot_grid(ggplot(telco, aes(x=StreamingMovies,fill=Churn))+ geom_bar(position = 'fill')+ 
+          scale_x_discrete(labels = function(x) str_wrap(x, width = 10)), 
+          ggplot(telco, aes(x=Contract,fill=Churn))+ geom_bar(position = 'fill')+
+          scale_x_discrete(labels = function(x) str_wrap(x, width = 10)),
+          ggplot(telco, aes(x=PaperlessBilling,fill=Churn))+ geom_bar(position = 'fill')+
+          scale_x_discrete(labels = function(x) str_wrap(x, width = 10)),
+          ggplot(telco, aes(x=PaymentMethod,fill=Churn))+ geom_bar(position = 'fill')+theme_bw()+
+          scale_x_discrete(labels = function(x) str_wrap(x, width = 10)),
+          align = "h")
+```
+-->
+
+```{r}
+p3.1 = ggplot(telco, aes(x=StreamingMovies,fill=Churn))+ geom_bar(position = 'fill')+ scale_x_discrete(labels = function(x) str_wrap(x, width = 10))
+p3.2 = ggplot(telco, aes(x=Contract,fill=Churn))+ geom_bar(position = 'fill')+scale_x_discrete(labels = function(x) str_wrap(x, width = 10))
+p3.3 = ggplot(telco, aes(x=PaperlessBilling,fill=Churn))+ geom_bar(position = 'fill')+scale_x_discrete(labels = function(x) str_wrap(x, width = 10))
+p3.4 = ggplot(telco, aes(x=PaymentMethod,fill=Churn))+ geom_bar(position = 'fill')+theme_bw()+scale_x_discrete(labels = function(x) str_wrap(x, width = 10))
+ggarrange(p1, p2, p3, p4, ncol=2, nrow=2, common.legend = TRUE, legend="right")
+```
+
+Analyzing the three continuous variables w.r.t CHURN:
+
+Tenure: The median tenure for customers who have left is around 10 months, there are few outliers though.
+
+```{r}
+options(repr.plot.width =6, repr.plot.height = 2)
+ggplot(telco, aes(y= tenure, x = "", fill = Churn)) + 
+geom_boxplot()+ 
+theme_bw()+
+xlab(" ")
+```
+
+```{r}
+hcboxplot(x = telco$tenure, var = telco$Churn,
+          outliers = TRUE) %>% 
+  hc_title(text = "Boxplot do tempo de fidelização do cliente X Desistência") %>% 
+  hc_chart(type = "column") %>% # to put box vertical 
+  hc_exporting(enabled = TRUE)  # enable exporting option
+```
+
+
+MonthlyCharges: Customers who have churned, have high monthly charges. The median is above 75.
+
+```{r}
+ggplot(telco, aes(y= MonthlyCharges, x = "", fill = Churn)) + 
+geom_boxplot()+ 
+theme_bw()+
+xlab(" ")
+```
+
+```{r}
+hcboxplot(x = telco$MonthlyCharges, var = telco$Churn,
+          outliers = TRUE) %>% 
+  hc_title(text = "Boxplot dos encargos mensais X Desistência") %>% 
+  hc_chart(type = "column") %>% # to put box vertical 
+  hc_exporting(enabled = TRUE)  # enable exporting option
+```
+
+
+TotalCharges:* The median Total charges of customers who have churned is low but again with few outliers.
+
+```{r}
+ggplot(telco, aes(y= TotalCharges, x = "", fill = Churn)) + 
+geom_boxplot()+ 
+theme_bw()+
+xlab(" ")
+```
+
+```{r}
+hcboxplot(x = telco$TotalCharges, var = telco$Churn,
+          outliers = TRUE) %>% 
+  hc_title(text = "Boxplot dos encargos totais X Desistência") %>% 
+  hc_chart(type = "column") %>% # to put box vertical 
+  hc_exporting(enabled = TRUE)  # enable exporting option
+```
+
+
+
+![Caption for the picture.](D:\\2018-2\\IC\\PROJETOS\\PROJ1\\CLUSTER\\Imagem1.png)
+
+### Gráficos
+
+
+Matriz de Correlação
+```{r, message = FALSE}
+correlationM = telco %>% select(tenure, MonthlyCharges, TotalCharges)
+hchart(cor(correlationM))
+```
+
+```{r, message=FALSE}
+hcboxplot(x = telco$tenure, var = telco$Churn, var2 = telco$gender,
+          outliers = FALSE) %>% 
+  hc_title(text = "Boxplot do tempo de fidelização do cliente X Sexo X Desistência") %>% 
+  hc_chart(type = "column") %>% # to put box vertical 
+  hc_exporting(enabled = TRUE)  # enable exporting option
+```
+
+```{r, message=FALSE}
+hcboxplot(x = telco$tenure, var = telco$Churn, var2 = telco$InternetService,
+          outliers = FALSE) %>% 
+  hc_title(text = "Boxplot do tempo de fidelização do cliente X Serviços de internet X Desistência") %>% 
+  hc_chart(type = "column") %>% # to put box vertical 
+  hc_exporting(enabled = TRUE)  # enable exporting option
+```
+
+```{r, message=FALSE}
+pe <- telco[,c("gender","MonthlyCharges","tenure","TotalCharges")]
+#names(telco)
+#library(HardyWeinberg)
+#e <- MakeFactor(pe,c("PaymentMethod"))
+#pe <- makeFactor(pe,c("Churn"))
+pe <- discretize(pe,nlevels = 5) 
+discparcoord(pe,k=10)
+```
+

@@ -1,0 +1,380 @@
+# Modelagem 1 - Random Forest (RF){.tabset .tabset-fade .tabset-pills}
+
+## Random Forest (RF) - Metodologia
+
+__Descrição__
+1. Random Forest foi desenvolvido para agregar árvores de decisão (modelo de classificação);  
+2. Pode ser usado para modelo de classificação (p/ var. resposta categórica) ou regressão (no caso de haver variável resposta contínua);  
+3. Evita *overfitting*;  
+4. Permite trabalhar com um largo número de características de um conjunto de dados;  
+5. Auxilia na seleção de variáveis baseada em um algoritmo que calcula a importância por variável (assim, tendo conhecimento de quais variáveis são mais importantes, podemos usar essa informação para outros modelos de classificação);  
+6. User-friendly: apenas 2 parâmetros livres:
+
+- Trees - ntrees, default 500 (Nº de árvores);
+- Variáveis selecionadas via amostragem aleatória candidatas à cada "split"  (quebra da árvore) - mtry, default
+    $\sqrt{p}$ p/ classificação e $\frac{p}{3}$
+    p/ regressão (p: nº de features/variáveis);
+
+
+__Passo-a-Passo__
+
+É realizado em 3 passos:
+
+1. Desenha as amostras via bootstrap do número de árvores *ntrees*;  
+2. Para cada amostra via bootstrap, cresce o número de árvores "un-puned" para a escolha da melhor quebra da árvore baseado na amostra aleatória do valor predito de mtry a cada nó da árvore;  
+- 3. Faz classificação de novos valores usando a maioria de votos p/ classificação e usa a média p/ regressão baseada nas amostras de ntrees.
+
+
+__Exemplo__
+
+```{r,echo = FALSE, eval = TRUE, message=FALSE, include = TRUE, fig.align="center"}
+DIR1 = "E:/2018-2/IC/PROJETOS/Classificador-IMDB/RECOMMENDER-IMDB/"
+knitr::include_graphics(paste0(DIR1,"IMG/ntrees.png"))
+```
+
+## Random Forest - Aplicação e Resultados
+
+Inicialmente utilizaremos o pacote `randomForest` que implmenta o algoritmo de Random Forest de Breiman (baseado na clusterização de Breiman, originalmente codificada em Fortran) que tem por finalidade classificar e/ou criar regressão. Além disso, pode ser usado em um modelo não supervisionado para avaliar proximidades entre pontos. 
+
+Estamos usando, a partir daqui, a base de treino.
+```{r}
+#library(randomForest)
+#library(rpart)
+#library(rpart.plot)
+#rf <- randomForest(proximity = T,ntree = 38,do.trace = T,WR~.,data=training)
+set.seed(9984512)
+rf <- randomForest(WR_Grp~.,data=train)
+rf
+attributes(rf)
+```
+
+Olhando as 6 primeiras observações real X predito
+```{r}
+p1 <- predict(rf,train)
+head(p1)
+head(train$WR_Grp)
+```
+
+__Matriz de confusão__
+
+```{r}
+library(caret)
+library(e1071)
+confusionMatrix(p1, train$WR_Grp)
+```
+
+<!-- https://www.youtube.com/watch?v=dJclNIN-TPo -->
+
+```{r}
+RF_importance = randomForest::importance(rf)[order(randomForest::importance(rf)[,1], decreasing = TRUE), ]
+knitr::kable(RF_importance)
+```
+Verificamos que as variávei *Game_Show*, *Sci_Fi*, *Reality_TV*, *News* e *Film_Noir* não foram relevantes para o algoritmo do random forest.
+
+```{r}
+randomForest::varImpPlot(rf)
+```
+
+
+__Taxa de Erro - Random Forest__
+```{r}
+plot(rf)
+legend('topright', colnames(rf$err.rate), col=1:5, fill=1:5)
+```
+
+Observamos que, a partir do número de árvores geradas  $ntrees > 300$ o erro OOB (Out of Bag) não pode ser melhorado. 
+
+
+__Ajustando e melhorando estimativas__
+
+```{r,echo = FALSE, eval = TRUE, message=FALSE, include = FALSE}
+train1 = train #%>% select(-Sci_Fi)
+test1 = test #%>% select(-Sci_Fi)
+```
+
+Além disso, iremos alterar alguns parâmetros da função `randomForest` como o número de ntrees e mtry. Assim, repetimos o algoritmo do Random Forest, ainda usando a base treino.
+
+```{r}
+# Tune mtry
+x = as.data.frame(train1[,-31])
+y = (as.factor(train1$WR_Grp))
+t <- tuneRF(x = x, y = y,
+       stepFactor = 0.3,
+       plot = TRUE,
+       ntreeTry = 300,
+       trace = TRUE,
+       improve = 0.05)
+```
+
+Aparentemente, 5 é um bom candidato ao valor de $m_{try}$
+```{r}
+#set.seed(093180)
+set.seed(998451)
+rf1 <- randomForest(WR_Grp~.,data=train1, 
+                    ntree = 300, 
+                    mtry = 5, 
+                    importance = TRUE,
+                    proximity = TRUE)
+rf1
+RF_importance1 = randomForest::importance(rf1)[order(randomForest::importance(rf1)[,1], decreasing = TRUE), ]
+plot(rf1)
+legend('topright', colnames(rf1$err.rate), col=1:5, fill=1:5)
+```
+
+__Removendo variáveis com pouca importância__
+
+Decidimos por retirar todos os fatores que retornaram importância abaixo de 10 em *MeanDecreaseGini*. Portanto, ficaremos apenas com as seguintes variáveis:
+```{r}
+RF1 = data.frame(variables = rownames(RF_importance1), importance = RF_importance1[,4])
+RF1 = RF1[order(RF1$importance, decreasing = TRUE),]
+rownames(RF1) <- NULL
+RF1 = RF1[1:10,]
+hc6_1 <- highchart() %>%
+  hc_add_series(data = RF1$importance, 
+                type = "bar",
+                name = "Importância",
+                showInLegend = FALSE,
+                tooltip = list(valueDecimals = 2, valuePrefix = "", valueSuffix = "")) %>%
+  hc_yAxis(title = list(text = "Importância"), 
+           allowDecimals = TRUE, max = 200,
+           labels = list(format = "{value}")) %>%
+  hc_xAxis(title = list(text = "Fatores"),
+           categories = RF1$variables,
+           tickmarkPlacement = "on",
+           opposite = FALSE) %>%
+  hc_title(text = "Importância por fator - Random Forest",
+           style = list(fontWeight = "bold")) %>% 
+  hc_subtitle(text = paste("")) %>%
+      hc_tooltip(valueDecimals = 2,
+                 pointFormat = "Importância: {point.y}")%>%
+                 #pointFormat = "Variável: {point.x} <br> Importância: {point.y}") 
+      hc_credits(enabled = TRUE, 
+                 text = "Fonte: IMDB/KAGGLE. Elaboração: Ewerson Pimenta.",
+                 style = list(fontSize = "10px")) %>%
+  hc_exporting(enabled = TRUE, filename = "F6_1-importance-Pimenta")
+#hc <- hc %>% 
+#  hc_add_theme(hc_theme_darkunica())
+hc6_1
+```
+
+Selecionando variáveis importantes
+```{r}
+train2 = train %>% select(num_voted_users, gross, duration, num_user_for_reviews, budget, cast_total_facebook_likes, title_year, num_critic_for_reviews, Drama, Horror, aspect_ratio, Action, Comedy, WR_Grp) %>% droplevels()
+test2 = test %>% select(num_voted_users, gross, duration, num_user_for_reviews, budget, cast_total_facebook_likes, title_year, num_critic_for_reviews, Drama, Horror, aspect_ratio, Action, Comedy, WR_Grp) %>% droplevels()
+movie = rbind(train2, test2)
+```
+
+```{r}
+# Tune mtry
+x = as.data.frame(train2[,-14])
+y = (as.factor(train2$WR_Grp))
+t <- tuneRF(x = x, y = y,
+       stepFactor = .7,
+       plot = TRUE,
+       ntreeTry = 150,
+       trace = TRUE,
+       improve = 0.05)
+```
+
+
+
+__Modelo Final__
+Os parâmetros utilizados, finalmente serão $m_{try} = 2$ e $n_{tree} = 150$
+```{r}
+set.seed(093180)
+rf_final <- randomForest(WR_Grp~.,data = train2,
+                    ntree = 150, 
+                    mtry = 2, 
+                    importance = TRUE,
+                    proximity = TRUE)
+rf_final; #attributes(rf_final)
+RF_importance1 = randomForest::importance(rf_final)[order(randomForest::importance(rf_final)[,1], decreasing = TRUE), ]
+plot(rf_final)
+legend('topright', colnames(rf$err.rate), col=1:5, fill=1:5)
+```
+
+__Predição e matriz de confusão - train data__
+```{r}
+library(caret)
+p1 <- predict(rf_final,train2)
+head(p1)
+head(train2$WR_Grp)
+confusionMatrix(p1, train2$WR_Grp)
+```
+
+__Predição e matriz de confusão - test data__
+```{r}
+p2 <- predict(rf_final,test2)
+head(p2)
+head(test2$WR_Grp)
+confusionMatrix(p2, test2$WR_Grp)
+```
+
+__Nº de nós nas árvores__
+```{r}
+hist(treesize(rf_final),
+     main = "Nº de nós por ávore",
+     col = "green")
+```
+
+<!--
+__Importância de variáveis__
+```{r}
+varImpPlot(rf_final,
+           sort = T,
+           n.var = 10,
+           main = "Top 10 - Importância de Variáveis")
+importance(rf_final) 
+varUsed(rf_final)
+```
+
+O gráfico à esquerda testa o quão ruim o modelo performa sem a variável.
+O gráfico à direita mostra o quão "puro" os nós são ao final de cada árvore sem a variável. 
+-->
+
+__Extração de uma única árvore__
+$Árvore \space n_{tree}=1$
+```{r}
+datatable(getTree(rf_final, 1, labelVar = TRUE),  
+          options = list(searchin = TRUE, pageLength = 5))
+```
+
+$Árvore \space n_{tree}=149$
+```{r}
+datatable(getTree(rf_final, 149, labelVar = TRUE),  
+          options = list(searchin = TRUE, pageLength = 5))
+```
+
+__Gráfico de escala multidimensional da matriz de proximidade__
+`Classical multidimensional scaling (MDS) of a data matrix. Also known as principal coordinates analysis (Gower, 1966).` 
+
+`Note that because of numerical errors the computed eigenvalues need not all be non-negative, and even theoretically the representation could be in fewer than n - 1 dimensions.`
+
+```yaml
+edit(MDSplot)
+fig.align="center"}
+(MDIM_treino = MDSplot(rf_final, train2$WR_Grp, pch=20,  keep.forest=FALSE))v
+(MDIM_teste = MDSplot(rf_final, test2$WR_Grp, pch=20,  keep.forest=FALSE))
+sum(MDIM_treino$eig[1:2])
+sum(MDIM_teste$eig[1:2])
+```
+
+Gráfico multidimensional com a variável resposta da base de TREINO.
+```{r, out.width = "400px",echo = FALSE, eval = TRUE, message=FALSE, include = TRUE, fig.align="center"}
+DIR1 = "E:/2018-2/IC/PROJETOS/Classificador-IMDB/RECOMMENDER-IMDB/"
+knitr::include_graphics(paste0(DIR1,"IMG/PLOTS/MDS_plot_TREINO.png"))
+```
+
+Gráfico multidimensional com a variável resposta da base de TESTE.
+```{r, out.width = "400px",echo = FALSE, eval = TRUE, message=FALSE, include = TRUE, fig.align="center"}
+DIR1 = "E:/2018-2/IC/PROJETOS/Classificador-IMDB/RECOMMENDER-IMDB/"
+knitr::include_graphics(paste0(DIR1,"IMG/PLOTS/MDS_plot_TESTE.png"))
+```
+
+
+Além disso, essa representação, multidimensional, explica cerca 70% da variabilidade total.
+
+<!--
+```{r}
+require(graphics)
+
+loc <- cmdscale(eurodist)
+x <- loc[, 1]
+y <- -loc[, 2] # reflect so North is at the top
+## note asp = 1, to ensure Euclidean distances are represented correctly
+plot(x, y, type = "n", xlab = "", ylab = "", asp = 1, axes = FALSE,
+     main = "cmdscale(eurodist)")
+text(x, y, rownames(loc), cex = 0.6)
+```
+-->
+
+<!-- `Falta acrescentar Legenda` -->
+
+Plot do modelo `rpart` - *Recursive Partitioning and Regression Trees* - personalizando automaticamente a partir do gráfico para o tipo de resposta do modelo.
+```{r}
+rp <- rpart::rpart(formula = WR_Grp~.,data=test2)
+#rpart::plotcp(rp)
+rpart.plot(rp)
+rpart.plot.version1(rp)
+```
+
+<!-- `Falta acrescentar Legenda` --> 
+
+## Random Forest - Considerações 
+
+O Random Forest  apresenta overfiting para os dados de treinamento, como é possível observar na  matriz de confusão obtida, e a partir de 150 arvores de regressão no algoritmo, tem-se um ganho minimo ao adicionar novas árvores. 
+
+É possível comparar nossos resultados com os resultados da usuária Yueming (disponíveis no site Kaggle clicando [AQUI](https://www.kaggle.com/carolzhangdc/predict-imdb-score-with-data-mining-algorithms) e [AQUI](https://www.kaggle.com/carolzhangdc/analyze-imdb-score-with-data-mining-algorithms)), sendo que a partir de seus resultados é possível obter algumas sugestões de melhora do nosso algoritmo, principalmente quanto ao tratamento dos dados (NA e zeros). Em nosso algoritmo, inicialmente, os filmes repetidos não haviam sido considerados, a autora observou 43 observações com repetição e variáveis com excesso de respostas nulas. Quanto as observações repetidas, replicamos o passo sugerido por ela e foram excluídos todos os filmes com repetição. 
+
+Em relação as respostas nulas em excesso, ela tratou essas, como NA, entretanto durante as etapas de preparação de dados, descobrimos que a única variável com tal problema era a "movie_facebook_likes" que acabou sendo excluída de nossa análise.
+
+Ainda foram observadas poucos filmes antes de 1991. Tal situação foi enfrentada pela autora com a exclusãos dessas observações raras. Replicamos esse passo também. De uma forma geral, a autora comparou três modelos (KNN, Árvore de Decisão e Random Forest) apenas levando em consideração a acurácia obtida nos modelos.
+
+Aqui, tentamos levar em consideração os valores, principalmente, da matriz de confusão e não somente a acurácia. E podemos concluir que:
+
+<!--
+- Utilizando a base de teste, o nosso modelo é muito bom para classificar um filme com (6,8]★, com uma sensibilidade de cerca de 96%. Entetanto, para as outras categorias o modelo se mostrou pobre e pouco robusto para o que se propôs: classificar. A exemplo disso, filmes na categoria com até 4★ tiveram um péssimo desempenho com uma sensibilidade de zero e especificidade 1, ou seja o modelo errou todas classificações desse grupo. As categorias de (4,6]★ e (8,10]★ tiveram cerca de 42% e 60% de sensibilidade, e especificidade muito altas de 96% e 99%, respectivamente. Isso seu deu, possivelmente pelo fato de as categorias serem muito desbalanceadas como podemos verificar abaixo.
+
+
+- Enquanto na base treino mais de 2mil filmes estavam na categoria de 6 a 8 ★  apenas 10 filmes se encontravam na categoria de até 4 estrelas. Esse cenário na base de teste foi propocionalmente semelhante, com 878 e 3 filmes nos grupos de 6 a 8 e 0 a 4 estrelas, respectivamente.
+
+-->
+
+- O nosso modelo é muito bom para classificar filmes com alta e baixa aprovação. Utilizando a base de teste, o modelo retornou através da matriz de confusão uma sensibilidade de cerca de 80% e uma especificidade de 82%. Além disso, uma acurácia obtida foi próxima de de 81%.
+
+- É valido ressaltar, também, que o erro OOB estimado foi de 20,7%.
+
+- Ainda através da matriz de confusão, o nosso modelo erra em uma menor quantidade de vezes na classificação de filmes de até 6,5★ (baixa aprovação). A estimativa de erro de classificação desses filmes é de 20% versus 21% de erro de classificação em filmes com alta aprovação. Erros semelhantes, próximo de 20%.
+
+- O quadro a seguir apresenta o número de filmes em cada classificação segundo a base de teste, treino e inteira (movie). Aparentemente as categorias são bem balanceadas.
+
+| Base de dados          | [0, 6.5) | [6.5, 10] |
+|------------------------|----------|-----------|
+| Movie (treino + teste) | 1716     | 1716      |
+| Treino                 | 1202     | 1208      |
+| Teste                  | 514      | 508       |
+
+<!--
+```{r}
+#View(head(movie))
+table(movie$WR_Grp)
+table(train2$WR_Grp)
+table(test2$WR_Grp)
+```
+-->
+
+
+Ainda conseguimos obter quais são os fatores/variáveis mais importantes para análise de classificação, dentre as variáveis existentes. Abaixo citamos as top 10 variáveis mais importantes.
+
+```{r}
+RF1 = RF1[1:10,]
+hc6_1 <- highchart() %>%
+  hc_add_series(data = RF1$importance, 
+                type = "bar",
+                name = "Importância",
+                showInLegend = FALSE,
+                tooltip = list(valueDecimals = 2, valuePrefix = "", valueSuffix = ""),
+                color="orange") %>%
+  hc_yAxis(title = list(text = "Importância"), 
+           allowDecimals = TRUE, max = 200,
+           labels = list(format = "{value}")) %>%
+  hc_xAxis(title = list(text = "Fatores"),
+           categories = RF1$variables,
+           tickmarkPlacement = "on",
+           opposite = FALSE) %>%
+  hc_title(text = "Importância por fator - Random Forest",
+           style = list(fontWeight = "bold")) %>% 
+  hc_subtitle(text = paste("")) %>%
+      hc_tooltip(valueDecimals = 2,
+                 pointFormat = "Importância: {point.y}")%>%
+                 #pointFormat = "Variável: {point.x} <br> Importância: {point.y}") 
+      hc_credits(enabled = TRUE, 
+                 text = "Fonte: IMDB/KAGGLE. Elaboração: Ewerson Pimenta.",
+                 style = list(fontSize = "10px")) %>%
+  hc_exporting(enabled = TRUE, filename = "F6_1-importance-Pimenta")
+#hc <- hc %>% 
+#  hc_add_theme(hc_theme_darkunica())
+hc6_1
+```
+
+------------------------------------------------------

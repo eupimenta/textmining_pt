@@ -1,0 +1,443 @@
+---
+title: "Recomendador de Filmes"
+subtitle: "Movie Recommender: Collaborative Filtering, Shiny - IMDB - Internet Movie DataBases"
+author: 
+- name: Ewerson C. Pimenta 
+  email: pimentaeu@yahoo.com
+date: "`r format(Sys.time(), 'Rio de Janeiro, %d de %B de %Y')`"
+output:
+  html_document:
+    number_sections: true
+    toc: true
+    fig_width: 10
+    code_folding: hide
+    fig_height: 4.5
+    theme: cosmo
+    highlight: tango
+csl: apa.csl
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+  
+  
+  
+  <!-- highlight: tango pygments kate monochrome zenburn haddock textmate -->
+  <!-- theme: cerulean, journal, flatly, readable, spacelab, united, cosmo, lumen, paper, sandston, simplex, yeti -->
+  
+  <!----------  INÍCIO CONFIG  ---------->
+  
+```{r INSTALPACK, echo = FALSE, eval = TRUE, message=FALSE, include = FALSE}
+list.of.packages <- c("arules","dplyr","HardyWeinberg","cdparcoord", "knitr", "knitLatex", "kableExtra", "tidyverse", "tidyverse", "cdparcoord", "cowplot", "ggpubr", "gridExtra", "stringi", "cluster", "factoextra", "cluster")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+remove(list.of.packages, new.packages)
+```
+
+```{r READPACK, echo = FALSE, eval = TRUE, message=FALSE, include = FALSE}
+library(tidyverse)
+library(highcharter)
+library(knitr)
+library(kableExtra)
+library(DT)
+```
+
+
+```{r READMETADATA, echo = FALSE, eval = TRUE, message=FALSE, include = FALSE}
+# Lendo o arquivo de dados
+RECOMMEND.METADATA = readxl::read_xlsx(path = "E:/2018-2/IC/PROJETOS/PROJ2/RECOMMENDER-IMDB/DB/IMDB.xlsx", sheet = 1)
+db = RECOMMEND.METADATA
+#class(db)
+#getwd()
+```
+  
+# Introdução
+
+  Frequentemente utilizamos serviços de recomendação seja por plataformas como *Netflix, Mercado Livre, OLX* dentre outros. O conjunto de dados explanados a seguir foram extraídos da plataforma Kaggle e são referentes ao catálogo de filmes da plataforma IMDB, o intuito aqui é criar um sistema de recomendação orientado a dados do catálogo e avaliação de filmes do IMDB.
+
+  Esse projeto é dividido em três partes: 
+
+* **Part I:** explorar o conjunto de dados e gerar insights a partr do mesmo.  
+* **Part II:** introduz e demonstra um filtro colaborativo.
+* **Part III:** cria um app com shiny a fim de recomendar livros.
+
+
+```{r, out.width = "400px",echo = FALSE, eval = TRUE, message=FALSE, include = TRUE}
+#knitr::include_graphics("D:/2018-2/IC/PROJETOS/PROJ2/RECOMMENDER-IMDB/IMG/popcorn.jpg")
+knitr::include_graphics("E:/2018-2/IC/PROJETOS/PROJ2/RECOMMENDER-IMDB/IMG/popcorn.jpg")
+```
+
+-------------------------------------
+
+## Pacotes e Leitura
+
+Alguns pacotes R utilizados nessa rotina
+```yaml
+library(tidyverse)          # Manipulação de banco de dados e análise exploratória
+library(highcharter)        # Highchart gráficos usando htmlwidgets (renderiza HTML via código R Markdown)
+library(gridExtra)          # Organiza e posiciona múltiplas tables e/ou plots
+library(DT)                 # Tabelas: datatable()
+library(knitr)
+library(kableExtra)
+
+```
+
+```yaml
+RECOMEND.METADATA = readxl::read_xlsx(path = ".../DB/IMDB.xlsx", sheet = 1)
+db = RECOMEND.METADATA
+```
+
+> Parte I
+
+# Banco de Dados{.tabset .tabset-fade .tabset-pills}
+
+  O conjunto de dados utilizado foi o de título *IMDB 5000* extraído da plataforma [kaggle](https://www.kaggle.com/). As informações contidas no banco foram catalogadas de filmes publicados ao longo de 100 anos em 66 países (entre 1916 e 2016) da plataforma IMDB - Internet Movie DataBases, o Arquivo original contém 5044 filmes (observações) e 28 variáveis descritas a seguir.
+  
+
+```{r, echo = FALSE, eval = TRUE, message=FALSE, include = TRUE}
+INFO = c("movie_title","Title of the Movie","duration","Duration in minutes","director_name","Name of the Director of the Movie","director_facebook_likes","Number of likes of the Director on his Facebook Page",
+        "actor_1_name","Primary actor starring in the movie","actor_1_facebook_likes","Number of likes of the Actor_1 on his/her Facebook Page","actor_2_name","Other actor starring in the movie","actor_2_facebook_likes","Number of likes of the Actor_2 on his/her Facebook Page",
+        "actor_3_name","Other actor starring in the movie","actor_3_facebook_likes","Number of likes of the Actor_3 on his/her Facebook Page","num_user_for_reviews","Number of users who gave a review","num_critic_for_reviews","Number of critical reviews on imdb",
+        "num_voted_users","Number of people who voted for the movie","cast_total_facebook_likes","Total number of facebook likes of the entire cast of the movie","movie_facebook_likes","Number of Facebook likes in the movie page","plot_keywords","Keywords describing the movie plot",
+        "facenumber_in_poster","Number of the actor who featured in the movie poster","color","Film colorization. ‘Black and White’ or ‘Color’","genres","Film categorization like ‘Animation’, ‘Comedy’, ‘Romance’, ‘Horror’, ‘Sci-Fi’, ‘Action’, ‘Family’","title_year","The year in which the movie is released (1916:2016)",
+        "language","English, Arabic, Chinese, French, German, Danish, Italian, Japanese etc","country","Country where the movie is produced","content_rating","Content rating of the movie","aspect_ratio","Aspect ratio the movie was made in","movie_imdb_link","IMDB link of the movie",
+        "gross","Gross earnings of the movie in Dollars","budget","Budget of the movie in Dollars","imdb_score", "IMDB Score of the movie on IMDB")
+# Cria matriz de INFO
+INFO = as.data.frame(matrix(INFO,byrow = T, ncol = 2))
+colnames(INFO) = c("Variables", "Description")
+datatable(INFO,  
+          options = list(searchin = TRUE, pageLength = 5))
+```
+
+
+*Os dados em questão são públicos e disponíveis para download clicando [AQUI](https://data.world/data-society/imdb-5000-movie-dataset) ou [AQUI](https://www.kaggle.com/carolzhangdc/analyze-imdb-score-with-data-mining-algorithms/data).* 
+
+
+# Análise Exploratória dos dados{.tabset .tabset-fade .tabset-pills}
+
+```{r}
+set.seed(123465)
+amostra1 = sample(x = 1:dim(db)[1], size = 35, replace = FALSE)
+t1 = as.data.frame(db[amostra1,]); rownames(t1) = as.character(amostra1)
+datatable(db[amostra1,],  rownames = amostra1,
+          options = list(searchin = TRUE, scrollX = TRUE, pageLength = 5))
+```
+
+          
+## Estrutura dos dados
+```{r, echo = FALSE, eval = TRUE, message=FALSE, include = TRUE}
+cat("O banco de dados possui", dim(db)[1], "observações e", dim(db)[2], "variáveis")
+```
+
+
+Excluindo algumas variáveis que não serão utilizadas.
+```{r}
+db = db %>% select(- director_facebook_likes, -actor_3_facebook_likes, -actor_2_name, -actor_1_facebook_likes, -actor_1_name, -actor_3_name,-facenumber_in_poster, -actor_2_facebook_likes)
+```
+
+```{r, echo = FALSE, eval = TRUE, message=FALSE, include = TRUE}
+cat("O banco de dados agora possui", dim(db)[2], "variáveis")
+```
+
+
+Estrutura dos dados
+```{r}
+glimpse(db) #str(db)
+```
+
+## Tratamento de NA
+
+Porcentagem de NA por variável
+```{r}
+db_miss <- db %>% summarise_all(funs(sum(is.na(.))/n()))
+db_miss <- gather(db_miss, key = "variables", value = "percent_missing")
+db_miss$percent_missing = 100*db_miss$percent_missing
+db_miss = db_miss[order(db_miss$percent_missing, decreasing = TRUE), ]
+#db_miss
+
+hc <- highchart() %>%
+  hc_add_series(data = db_miss$percent_missing, 
+                type = "bar",
+                name = "Porcentagem de missing",
+                showInLegend = FALSE,
+                tooltip = list(valueDecimals = 2, valuePrefix = "", valueSuffix = " %")) %>%
+  hc_yAxis(title = list(text = "Porcentagem de missing"), 
+           allowDecimals = TRUE, max = 20,
+           labels = list(format = "{value}%")) %>%
+  hc_xAxis(categories = db_miss$variables,
+           tickmarkPlacement = "on",
+           opposite = FALSE) %>%
+  hc_title(text = "Porcentagem de missinig por variável",
+           style = list(fontWeight = "bold")) %>% 
+  hc_subtitle(text = paste("")) %>%
+      hc_tooltip(valueDecimals = 2,
+                 pointFormat = "Missing: {point.y}")%>%
+                 #pointFormat = "Variável: {point.x} <br> Missing: {point.y}") 
+      hc_credits(enabled = TRUE, 
+                 text = "Fonte: IMDB/KAGGLE. Elaboração: Ewerson Pimenta.",
+                 style = list(fontSize = "10px")) %>%
+  hc_exporting(enabled = TRUE, filename = "F1-missing-Pimenta")
+#hc <- hc %>% 
+#  hc_add_theme(hc_theme_darkunica())
+hc
+```
+
+Removendo todas as observações que contêm NA.
+```{r}
+#db1 <- db %>% na.omit()
+#db1 <- db %>% drop_na()
+
+db1 <- db %>% drop_na(gross, budget, aspect_ratio 
+,content_rating, plot_keywords, title_year 
+,director_name, num_critic_for_reviews, num_user_for_reviews 
+,color, duration, language 
+,country, num_voted_users, cast_total_facebook_likes
+,movie_imdb_link, imdb_score, movie_facebook_likes)
+glimpse(db1)
+```
+
+
+```{r REMOVE_NA, echo = FALSE, eval = TRUE, message=FALSE, include = TRUE}
+cat("O novo banco de dados, sem observações faltantes, possui", dim(db1)[1], "observações. Ou seja, no processo de remoção de valores faltantes foram perdidas", dim(db)[1]-dim(db1)[1], "observações.")
+```
+
+## Transformação de variáveis 
+
+Transformando as variáveis `imdb_score` e `aspect_ratio` em numéricas
+```{r}
+db$imdb_score = as.numeric(as.character(db$imdb_score))
+db$aspect_ratio = as.numeric(as.character(db$aspect_ratio))
+```
+
+
+```{r}
+hchart(db1$imdb_score, color = "#e8bb0b", name = "imdb_score") %>% 
+  hc_title(text = "Histograma dos votos na plataforma IMDB") %>%
+  hc_exporting(enabled = TRUE, filename = "F2-Pimenta")
+```
+
+```{r}
+hchart(db1$num_voted_users, color = "#786eea", name = "imdb_num_votos") %>% 
+  hc_title(text = "Histograma dos número de votos na plataforma IMDB") %>%
+  hc_exporting(enabled = TRUE, filename = "F3-Pimenta")
+```
+
+Criando uma função para cálculo da moda
+```{r}
+Moda <- function(x) {
+     ux <- unique(x)
+     ux[which.max(tabulate(match(x, ux)))]
+}
+```
+
+
+```{r, echo = FALSE, eval = TRUE, message=FALSE, include = TRUE}
+cat("Média, moda e mediana da variável imdb_score são, respectivamente,",round(mean(db1$imdb_score),2), Moda(db1$imdb_score),median(db1$imdb_score))
+```
+
+Extraindo valores da variável gênero e transformando em dummies
+```{r}
+gg <- as.character(db1$genres)
+
+t <- unlist(strsplit(gg[1],split = "\\|"))
+tem1 <- data.frame() 
+for(i in 1:length(gg)){
+        tem <- tem1
+        t <- unlist(strsplit(gg[i],split = "\\|"))
+        temp <- data.frame(t)
+        tem1 <- rbind(tem,temp)
+}
+
+Gen <- unique(tem1)
+Genname <- as.character(Gen$t)
+
+fe <- matrix(data = 0, nrow = length(gg), ncol = length(Genname))
+fe <- data.frame(fe); colnames(fe) <- Genname
+
+for(i in 1:length(gg)){
+        for(j in 1:length(Genname)){
+                g <- grepl(Genname[j], gg[i])
+                if(g == TRUE){
+                        fe[i, j] <- 1        
+                }
+        }
+}
+
+NumGen = as_tibble(rbind(apply(fe,2,sum)))
+NumGen = gather(NumGen, key = "variables", value = "num_gender")
+NumGen = NumGen[order(NumGen$num_gender, decreasing = TRUE), ]
+
+
+hc3 <- highchart() %>%
+  hc_add_series(data = NumGen$num_gender, 
+                type = "bar",
+                name = "# de filmes",
+                showInLegend = FALSE,
+                tooltip = list(valueDecimals = 0, valuePrefix = "", valueSuffix = "")) %>%
+  hc_yAxis(title = list(text = "Quantitativo de filmes"), 
+           allowDecimals = TRUE, max = (max(NumGen$num_gender)+103),
+           labels = list(format = "{value}")) %>%
+  hc_xAxis(title = list(text = "Gênero de filme"),
+           categories = NumGen$variables,
+           tickmarkPlacement = "on",
+           opposite = FALSE) %>%
+  hc_title(text = "Quantitativo de filmes por gênero",
+           style = list(fontWeight = "bold")) %>% 
+  hc_subtitle(text = paste("")) %>%
+      hc_tooltip(valueDecimals = 2,
+                 pointFormat = "{point.y} filmes")%>%
+                 #pointFormat = "Variável: {point.x} <br> Missing: {point.y}") 
+      hc_credits(enabled = TRUE, 
+                 text = "Fonte: IMDB/KAGGLE. Elaboração: Ewerson Pimenta.",
+                 style = list(fontSize = "10px")) %>%
+  hc_exporting(enabled = TRUE, filename = "F3-filmes-genero-Pimenta")
+#hc <- hc %>% 
+#  hc_add_theme(hc_theme_darkunica())
+hc3
+```
+
+
+
+
+
+## Weighted Rating (WR)
+
+
+Um passo importante é penalizar a variável de escore `imdb_score` pelo [número de votos recebidos](https://help.imdb.com/article/imdb/track-movies-tv/faq-for-imdb-ratings/G67Y87TFYYP6TWAV#). Ver mais no estimador de [Shrinkage](https://stats.stackexchange.com/questions/6418/rating-system-taking-account-of-number-of-votes)
+
+
+$WR = \frac{v}{v+m} \times R + \frac{m}{v+m} \times C$
+
+Onde,
+
+```{r}
+R = as.numeric(db1$imdb_score)
+v = as.numeric(db1$num_voted_users)
+m = 7000
+C = 6.5
+db1$WR = (v/(v+m))*R + (m/(v+m))*C
+```
+
+* R = Escore médio dos votos para o título do filme dado pelos usuários do IMDB = (imdb_score)
+* v = Número de usuários que votaram = (num_voted_users)
+* m = Mínimo de votos requerido (atualmente 7.000)
+* C = O escore médio de todos os 3766 filmes (atualmente 6,5)
+
+
+```{r}
+dss <- map(c("cross"), function(s){
+  
+  x <- as.numeric(db1$imdb_score)
+  y <- as.numeric(db1$WR)
+  
+  list(name = s,
+       data = list_parse(data_frame(x, y)),
+       marker = list(symbol = s, enabled = TRUE), lineColor = "#56667a")
+  
+})
+#dss[[1]]$data[amostra1]
+
+hc1 = highchart() %>% 
+  hc_chart(type = "scatter", color = "#56667a") %>% 
+  hc_title(text = "Score IMDB vs WR (calculado pelo estimador de Shrinkage") %>%
+  hc_xAxis(title = list(text = "x: imdb_score"), 
+           allowDecimals = TRUE, labels = list(format = "{value}★")) %>%
+  hc_yAxis(title = list(text = "y: WR (calibrado)"),
+           allowDecimals = TRUE, labels = list(format = "{value}★ (WR)")) %>%
+  hc_exporting(enabled = TRUE, filename = "F3-Pimenta") %>%
+  hc_add_series_list(dss); hc1
+```
+
+## Visualizações Finais
+```{r}
+set.seed(123654)
+amostra2 = sample(x = 1:dim(db1)[1], size = 35, replace = FALSE)
+db1[amostra2,] %>% 
+  select(movie_title,num_voted_users,imdb_score, WR, movie_facebook_likes, cast_total_facebook_likes, budget) %>% 
+  datatable(rownames = amostra2,options = list(searchin = TRUE, scrollX = TRUE, pageLength = 5))
+```
+
+
+Para os dados quantitativos temos a seguir uma [Matriz de correlação](https://cran.r-project.org/web/packages/corrplot/vignettes/corrplot-intro.html)
+
+```{r, out.width = "600px",echo = FALSE, eval = TRUE, message=FALSE, include = TRUE}
+#knitr::include_graphics("D:/2018-2/IC/PROJETOS/PROJ2/RECOMMENDER-IMDB/IMG/popcorn.jpg")
+knitr::include_graphics("E:/2018-2/IC/PROJETOS/PROJ2/RECOMMENDER-IMDB/IMG/PLOTS/3.Fig.Correlation.png")
+```
+
+```{r}
+library(grDevices)
+col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
+db_cor1 = as_tibble(data.frame(db1,fe)) %>% 
+  select(-color, -director_name, -genres, -movie_title, -plot_keywords, -movie_imdb_link, -language, -country, -content_rating)
+#hchart(cor(db_cor1))
+```
+
+
+```{r}
+dim(as_tibble(data.frame(db1,fe)))
+```
+
+
+------------------------------------------------------------------------------------------------
+
+
+# Modelagem
+
+*https://www.kaggle.com/carolzhangdc/analyze-imdb-score-with-data-mining-algorithms*
+*https://www.kaggle.com/philippsp/book-recommender-collaborative-filtering-shiny  *
+*https://www.kaggle.com/pimentaeu/kernels/scripts/new?forkParentScriptVersionId=1563912*  
+*https://philippsp.shinyapps.io/BookRecommendation/*
+*https://www.kaggle.com/gaborfodor/kaggle-trends*
+
+## Árvore de Decisão
+
+```{r}
+movie = db1
+movie$color <- as.numeric(movie$color)
+movie$director_name <- as.numeric(movie$director_name)
+movie$genres <- as.numeric(movie$genres)
+movie$movie_title <- NULL # We are not going to work here with text variables
+movie$plot_keywords <- NULL
+movie$movie_imdb_link <- NULL
+movie$language <- as.numeric(movie$language)
+movie$country <- as.numeric(movie$country)
+movie$content_rating <- as.numeric(movie$content_rating)
+movie$imdb_score <- NULL
+```
+
+```{r}
+movie[is.na(movie)] <- 0
+glimpse(movie)
+```
+
+
+
+```{r}
+library(randomForest)
+library(rpart)
+library(rpart.plot)
+rf <- randomForest(proximity = T,ntree = 30,do.trace = T,WR~.,data=movie)
+```
+
+```{r}
+RF_importance = randomForest::importance(rf)[order(randomForest::importance(rf)[,1], decreasing = TRUE), ]
+knitr::kable(RF_importance)
+```
+
+```{r}
+randomForest::varImpPlot(rf)
+```
+
+
+```{r}
+rp <- rpart::rpart(formula = WR~.,data=movie)
+rpart::plotcp(rp)
+```
+
+```{r}
+rpart.plot(rp)
+```
+
+

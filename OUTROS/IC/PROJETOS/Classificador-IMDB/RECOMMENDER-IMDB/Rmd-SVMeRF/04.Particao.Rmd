@@ -1,0 +1,117 @@
+# Preparação e Partição dos Dados{.tabset .tabset-fade .tabset-pills}
+
+## Preparação de dados
+
+```{r}
+dist1 = 2.5
+db2 = db1 %>% filter(WR >= (mean(db1$WR)- dist1) & WR <= (mean(db1$WR)+ dist1))
+paste('Excluímos ', dim(db1)[1] - dim(db2)[1], ' filmes da base. O critério aqui utilizado foi o de permanecer, apenas, filmes distantes em até ', dist1, ' estrelas da média de estrelas ',round(mean(db1$WR),2),'.')
+```
+
+```{r}
+par(mfrow=c(2,2))
+plot(db2$imdb_score, ylim = c(0,10), main = "Plot da variável imdb_score")
+abline(h=mean(db2$imdb_score), col = "purple")
+plot(db2$WR, ylim = c(0,10), main = "Plot da variável WR (imdb_score penalizado)")
+abline(h=mean(db2$WR), col = "purple")
+hist(db2$imdb_score, main = "Histograma da variável imdb_score", probability = TRUE, xlab = "Estrelas", ylab = "Porcentagem de Estrelas")
+#curve(dnorm(x, mean=mean(db2$imdb_score), sd=sd(db2$imdb_score)), add=TRUE, col = "red")
+points(seq(min(db2$imdb_score), max(db2$imdb_score), length.out = length(db2$imdb_score)), 
+           dnorm(seq(min(db2$imdb_score), max(db2$imdb_score), length.out = length(db2$imdb_score)), 
+                     mean(db2$imdb_score), sd(db2$imdb_score)), type = "l", col = "red")
+lines(density(db2$imdb_score), col="blue", lwd=1) # add a density estimate with defaults
+lines(density(db2$imdb_score, adjust=2), lty="dotted", col="darkgreen", lwd=1) 
+hist(db2$WR, main = "Histograma da variável WR (imdb_score penalizado)", probability = TRUE, xlab = "Estrelas", ylab = "Porcentagem de Estrelas", ylim = c(0,.8))
+points(seq(min(db2$WR), max(db2$WR), length.out = length(db2$WR)), 
+           dnorm(seq(min(db2$WR), max(db2$WR), length.out = length(db2$WR)), 
+                     mean(db2$WR), sd(db2$WR)), type = "l", col = "red")
+lines(density(db2$WR, ), col="blue", lwd=1) # add a density estimate with defaults
+lines(density(db2$WR, adjust=2), lty="dotted", col="darkgreen", lwd=1) 
+```
+
+__Transformação da variável contínua `WR`em categórica `WR_Grp`__  
+
+Transformando a variável WR em fator, com as seguintes categorias:
+
+
+- Categoria 'Baixo índice de aprovação (low score)': [0, 6.5) ★ 
+- Categoria 'Alto índice de aprovação (high score)': [6.5, 10) ★
+
+```{r}
+movie = db2
+Grp <- function(tn){
+  tn = abs(tn)
+    if (tn >= 0 & tn < median(db2$WR)){
+        return(paste0('[0, ',round(median(db2$WR),2),')'))
+    }else if(tn >= median(db2$WR)){
+        return(paste0('[',round(median(db2$WR),2),', 10]'))
+    }
+}
+# apply the Group function to the WR column
+movie$WR_Grp <- sapply(movie$WR,Grp)
+# set as factor the new column
+movie$WR_Grp <- as.factor(movie$WR_Grp)
+#View(head(movie))
+table(movie$WR_Grp)
+
+# apply the Group function to the WR column
+imdb_score_Grp <- sapply(movie$imdb_score,Grp)
+# set as factor the new column
+imdb_score_Grp <- as.factor(imdb_score_Grp)
+#View(head(movie))
+table(imdb_score_Grp)
+```
+
+Como podemos ver, na base sem a transformação e sem a exclusão de filmes com mais de 2,5 estrelas distantes da média tinha quase 1700 filmes com baixa classificação contra 2070 com alta classificação.
+
+O critério de selecionar filmes distantes em até 2,5 estrelas da média de 6,57 juntamente com a transoformação da variável pelo cálculo de `WR` permitiu construir uma nova base de dados com categorias (Alta e Baixa) muito mais balanceadas, com um número de filmes em ambas as categorias igual a 1883.
+
+__Remoção de variáveis__
+Remove as variáveis *imdb_score*, *genres*, *plot_keywords*, *movie_imdb_link* e *WR*.
+
+```{r}
+movie$imdb_score <- NULL
+movie$genres <- NULL
+movie$plot_keywords <- NULL
+movie$movie_imdb_link <- NULL
+movie$WR <- NULL
+```
+
+
+```{r}
+#str(as_tibble(movie))
+glimpse(as_tibble(movie))
+```
+
+
+```{r}
+cat("A base de dados que iremos trabalhar no modelo tem", dim(movie)[1] , "observações e ", dim(movie)[2]-1, "variáveis, sem contar a variável que contém os títulos dos filmes.")
+```
+
+## Partição dos dados
+
+Particionando a base de dados em Treino e Teste, esses dois (Treino e Teste) também terão armazenos os nomes dos filmes selecionados via amostragem probabilística dos dados originais separadamente das bases de Treino e Teste.
+
+Posteriormente, removemos os rótulos dos filmes nas bases Treino e Teste
+
+```{r}
+set.seed(9182345)
+ind <- sample(2, nrow(movie), replace = T, prob = c(0.7, 0.3))
+train <- movie[ind==1, -4]
+test <- movie[ind==2, -4]
+trainMovie <- movie[ind==1, 4]
+testMovie <- movie[ind==2, 4]
+```
+
+Porcentagem da Distribuição dos filmes por categorias nas bases de treino e teste
+```{r}
+round(table(train$WR_Grp)/sum(table(train$WR_Grp))*100,2)
+round(table(test$WR_Grp)/sum(table(test$WR_Grp))*100,2)
+```
+
+```{r}
+hchart(train$WR_Grp, colorByPoint = TRUE, name = "Escore - Base Treino")
+hchart(test$WR_Grp, colorByPoint = TRUE, name = "Escore - Base Teste")
+```
+
+------------------------------------------------------

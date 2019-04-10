@@ -1,0 +1,187 @@
+
+```{r PLOT, echo = FALSE, eval = TRUE, message=FALSE, include = FALSE}
+plotuni <- function(dst, column, name) {
+    plt <- ggplot(dst, aes(x=column, fill=(Churn))) + 
+        ggtitle(name) + 
+        xlab(name) +
+        ylab("Porcentagem")  +
+        geom_bar(aes(y = 100*(..count..)/sum(..count..)), width = 0.7) + 
+        theme_minimal() +
+        theme(legend.position="none", axis.text.x = element_text(angle = 45, hjust = 1)) +
+        scale_fill_manual(values=c("#999999", "#f48a11"))
+    return(plt)
+}
+```
+
+
+```{r}
+glimpse(telco)
+```
+Todos os gráficos a seguir utilizarão legenda em comum a seguir.
+|![](E:/2018-2/IC/PROJETOS/PROJ1/CLUSTER/IMG/legenda.png)|
+
+
+Visualizando, primeiramente, a variável categórica resposta de interesse 'Churn'. Onde `Yes` significa que o cliente migrou (deixou de ser cliente) e `No` que ele permanece como cliente.
+
+Mais especificamente, pelo 'Churn' fica claro o quantitativo de clientes que migraram no último mes. 
+Cerca de 26% dos clientes deixaram de ser atendido pelos serviços da empresa no último mes.
+
+
+```{r}
+options(repr.plot.width = 6, repr.plot.height = 4)
+telco %>% 
+group_by(Churn) %>% 
+summarise(Count = n())%>% 
+mutate(percent = prop.table(Count)*100)%>%
+ggplot(aes(reorder(Churn, -percent), percent), fill = Churn)+
+geom_col(fill = c("#999999", "#f48a11"))+
+geom_text(aes(label = sprintf("%.2f%%", percent)), hjust = 0.01,vjust = -0.5, size =3)+ theme_minimal() +
+theme(legend.position="right", axis.text.x = element_text(angle = 45, hjust = 1))+  
+xlab("") + 
+ylab("Porcentagem")+
+ggtitle("Churn (%)")
+```
+
+- Gênero - A porcentagem de churn é praticamente a mesma entre gêneros masculino e feminino.
+- A porcentagem de churn é maior entre os cidadãos de terceira idade (senior citizens)
+- Clientes com parceiros e dependentes têm menores taxas de Churn comparadas àquele que não tem parceiros e dependentes.
+- Taxa de Churn em clientes que aderiram serviços de Internet de Fibra ótica  são maiores que em outros serviços ou não serviço de internet.
+- CLientes que não consumiram serviços como *OnlineSecurity* , *OnlineBackup* e *TechSupport* deixaram a companhia em maior frequência, uma vez comparado com os clientes que consumiram algum tipo desses serviços.
+
+```{r}
+# Plot 1.1 by gender 
+p1.1 <- plotuni(telco, telco$gender, "Gender")                 
+# plot 1.2 by Senior Citizen
+p1.2 <- plotuni(telco, telco$SeniorCitizen, "Senior Citizen")
+# plot 1.3 by Partner
+p1.3 <- plotuni(telco, telco$Partner, "Partner")
+# plot 1.4 by Dependents
+p1.4 <- plotuni(telco, telco$Dependents, "Dependents")
+# plot 1.5 by Phone Service
+p1.5 <- plotuni(telco, telco$PhoneService, "Phone Service")
+# plot 1.6 by Multiple Lines
+p1.6 <- plotuni(telco, telco$MultipleLines, "Multiple Lines")
+# plot 1.7 by Internet Service
+p1.7 <- plotuni(telco, telco$InternetService, "Internet Service")
+# plot 1.8 by DeviceProtection
+p1.8 <- plotuni(telco, telco$DeviceProtection, "Device Protection")
+
+# draw the plot grid
+grid.arrange(p1.1, p1.2, p1.3, p1.4, p1.5, p1.6, p1.7, p1.8, ncol=4)
+```
+
+```{r}
+# Plot 2.1 by OnlineBackup 
+p2.1 <- plotuni(telco, telco$OnlineBackup, "Online Backup")     
+# plot 2.2 by Online Security
+p2.2 <- plotuni(telco, telco$OnlineSecurity, "Online Security")
+# plot 2.3 by TechSupport
+p2.3 <- plotuni(telco, telco$TechSupport, "Tech Support")
+# plot 2.4 by StreamingTV
+p2.4 <- plotuni(telco, telco$StreamingTV, "Streaming TV")
+# plot 2.5 by StreamingMovies
+p2.5 <- plotuni(telco, telco$StreamingMovies, "Streaming Movies")
+# plot 2.6 by PaperlessBilling
+p2.6 <- plotuni(telco, telco$PaperlessBilling, "Paperless Billing")
+# plot 2.7 by PaymentMethod
+p2.7 <- plotuni(telco, telco$PaymentMethod, "Payment Method")
+# plot 2.8 by Tenure
+p2.8 <- plotuni(telco, telco$tenure, "Tenure")
+
+# draw the plot grid
+grid.arrange(p2.1, p2.2, p2.3, p2.4, p2.5, p2.6, p2.7, p2.8, ncol=4)
+```
+
+Tipo de contrato (renovação mensal, 1ano, 2 anos)
+```{r}
+# Plot 2.2.1 by Contract
+p2.2.1 <- plotuni(telco, telco$Contract, "Contract")                 
+# draw the plot grid
+ggarrange(p2.2.1, ncol=1, legend = "right", common.legend = TRUE)
+```
+
+- Clientes com pelo menos um ou dois anos de contrato têm menores taxas de Churn que clientes que ficaram períodos inferiores a um ano.
+- A frequência de churn em clientes que recebiam fatura impressa (Paperless Billing) é maior que em clientes que não aderiram esse serviço.
+- Clientes com método de pagamento (PaymentMethod) *ElectronicCheck* apresentaram maiores taxas de desistência da companhia.
+
+
+Vamos analisar, agora, as três únicas variáveis contínuas no banco versus CHURN:
+
+MonthlyCharges: os clientes que migraram tiveram encargos mensais altos comparado aos que não migrram, com uma mediana superior a 75.
+
+```{r}
+ggplot(telco, aes(y= MonthlyCharges, x = "", fill = Churn)) + 
+geom_boxplot() + theme_bw()+ scale_fill_manual(values=c("#999999", "#f48a11")) +
+xlab(" ")
+```
+
+
+TotalCharges: A mediana dos encargos totais dos clientes que optaram por deixar a companhia é inferior à mediana dos que ainda permaneceram como clientes, mas, novamente, com presença de outliers.
+
+```{r}
+ggplot(telco, aes(y= TotalCharges, x = "", fill = Churn)) + 
+geom_boxplot() + theme_bw()+ scale_fill_manual(values=c("#999999", "#f48a11")) +
+xlab(" ")
+```
+
+Tenure: Entre os clientes que migraram a mediana é aproximadamente igual a 10 meses, existem alguns possíveis outliers neste.
+
+```{r}
+options(repr.plot.width =6, repr.plot.height = 2)
+ggplot(telco, aes(y= tenure, x = "", fill = Churn)) + 
+geom_boxplot() + theme_bw()+ scale_fill_manual(values=c("#999999", "#f48a11")) +
+xlab(" ")
+```
+
+```{r}
+paste("Conhecendo que o valor mínimo de tenure: ",min(telco$tenure)," e o valor máximo: ",max(telco$tenure), "sugerimos criar uma variável por classes.")
+```
+
+
+Iremos criar, então, uma nova variável intervalar com os seguintes grupos:
+
+- 0–12[  
+- [12–24[  
+- [24–36[  
+- [36-48[  
+- [48–60[  
+- [60-Inf[  
+
+Criando a função que define os grupos intervalares
+```{r}
+# create the goupping function with the define intervals
+CreateGrp <- function(tn){
+    if (tn >= 0 & tn <= 12){
+        return('0-12')
+    }else if(tn > 12 & tn <= 24){
+        return('12-24')
+    }else if (tn > 24 & tn <= 36){
+        return('24-36')
+    }else if (tn > 36 & tn <= 48){
+        return('36-48')
+    }else if (tn > 48 & tn <=60){
+        return('48-60')
+    }else if (tn > 60){
+        return('maior que 60')
+    }
+}
+# apply the Group function to the tenure column
+telco$GrpTenure <- sapply(telco$tenure,CreateGrp)
+# set as factor the new column
+telco$GrpTenure <- as.factor(telco$GrpTenure)
+head(telco$GrpTenure)
+```
+
+```{r}
+knitr::kable(sapply(telco, typeof))
+```
+
+
+Então, a distribuição da nova variável *GrpTenure* por Churn
+
+```{r}
+# Plot 3.1 by GrpTenure
+p3.1 <- plotuni(telco, telco$GrpTenure, "GrpTenure")                 
+# draw the plot grid
+ggarrange(p3.1, ncol=1, legend = "right", common.legend = TRUE)
+```
