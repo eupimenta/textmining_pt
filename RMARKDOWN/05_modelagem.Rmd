@@ -82,9 +82,6 @@ head(training$DIRETORIA)
 Selecionando uma árvore
 ```{r}
 rp <- rpart::rpart(formula = DIRETORIA~.,data=training)
-#rpart::plotcp(rp)
-rpart.plot(rp)
-rpart.plot.version1(rp)
 ```
 
 <!--
@@ -118,16 +115,16 @@ t <- tuneRF(x = x, y = y,
        improve = 0.05)
 ```
 
-Aparentemente mtry = 30 é um bom palpite
+Aparentemente mtry = 18 é um bom palpite
 
 Reescrevendo, então, o modelo
 
-```{r}
+```yaml
 set.seed(09986755)
 # Training with classification tree
 rf2 <- randomForest(as.factor(DIRETORIA) ~ ., data=training,
                     ntree = 200, 
-                    mtry = 30, 
+                    mtry = 18, 
                     importance = TRUE,
                     proximity = TRUE)
 rf2
@@ -142,23 +139,26 @@ confusionMatrix(predictions2, as.factor(testing$DIRETORIA))
 ```yaml
 RF_importance = randomForest::importance(rf2)[order(randomForest::importance(rf2)[,1], decreasing = TRUE), ]
 randomForest::varImpPlot(rf2)
+#rpart::plotcp(rf2)
+#rpart.plot(rf2)
+#rpart.plot.version1(rf2)
 ```
 
 Taxa de Erro Random Forest
-```{r}
+```yaml
 plot(rf2)
 legend('topright', colnames(rf2$err.rate), col=1:5, fill=1:5)
 ```
 
 Histograma do Número de nós por árvore
-```{r}
+```yaml
 hist(treesize(rf2), probability = T,
      main = "Distribuição do nº de nós por ávore",
      col = "green")
 ```
 
 
-```{r}
+```yams
 edit(MDSplot)
 fig.align="center"
 (MDIM_treino = MDSplot(rf2, training$DIRETORIA, pch=20))

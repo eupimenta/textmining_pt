@@ -30,7 +30,10 @@ selecionando as 20 palavras mais importantes de cada uma das 4 diretorias e da c
 termos_dir = 
 plot_diretoria_palavras_noSTOP %>%
 group_by(DIRETORIA) %>%
-top_n(10, tf_idf)
+top_n(50, tf_idf) %>%
+  select(palavra)
+
+termos_dir <- unique(termos_dir);
 ```
 Cria, antes, uma variáveil DESCRI_PEDIDO1 que repete os passos feitos aos termos quanto ao stemming so que no texto fonte.
 ```{r}
