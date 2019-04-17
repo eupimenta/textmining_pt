@@ -1,71 +1,240 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
 <!--      
 Essa Rotina é destinada a importação de dados do projeto de mineração de texto em pedidos via Sistema Eletrônico de Serviço de Informação ao Cidadão (e-SIC)
 -->
 
-### Pedidos por diretoria 
+### Filtra, Transforma e Unifica bases
 
+#### Filtro1: tabela consulta de pedidos
+Filtrando apenas as variáveis de interesse do estudo na tabela de consulta de pedidos
+```{r}
+LAI = LAI %>% select(Protocolo, `Data de Abertura`, `Prazo de Atendimento`, `Descrição do Pedido`, `Resumo da Solicitação`, `Data da Resposta`)
+```
+
+#### Transformação1: reescrevendo colunas
+Reescrevendo o nome das variáveis de ambas tablelas
+```{r}
+colnames(LAI) = c("Protocolo", "DATA_REGISTRO", "DATA_PRAZOATEND", "DESCRI_PEDIDO",
+                     "RESUMO_PEDIDO", "DATA_RESPOSTA")
+colnames(LAI1) = c("Protocolo", "DATA_REGISTRO", "DIRETORIAS")
+```
+
+> Análise1: Quantitativo de pedidos por diretoria 
+
+#### Transformação2: substitui NA por OUTROS (coluna DIRETORIAS)
+```{r}
+LAI1 = 
+  LAI1 %>% 
+  replace_na(list(DIRETORIAS = "OUTROS"))
+diretorias = levels(as.factor(LAI1$DIRETORIAS))
+```
+
+#### Tabela1: Quantitativo de pedidos por diretoria - sem reclassificação
 - Tabela 01 número de solcitações/pedidos de informação 
 ```{r}
-LAI1 %>%
- count(DIRETORIA, sort = TRUE, name = "total_pedidos") %>%
-  kable("latex", caption = "Quantitativo de solicitações por Diretoria/EPE via e-SIC",
+pedidos_diretoria = LAI1 %>%
+ count(DIRETORIAS, sort = TRUE, name = "total_pedidos") 
+pedidos_diretoria %>%
+  kable("latex", caption = "Quantitativo de solicitações por Diretoria/EPE via e-SIC - sem reclassificação", 
         booktabs = T) %>%
   kable_styling(latex_options = c("striped", "hold_position"))
-diretorias0 = levels(as.factor(LAI1$DIRETORIA))
 ```
 
-Verificamos a existência de 5 diretorias, sendo elas: _DEA_, _DEE_, _DGC_, _DPG_, _SIC_ e _OUTROS_. Essa última é devido a existência de informações solicitadas que não são de competência direta de nenhuma das cinco diretorias, daí a necessidade de uma última categoria _OUTROS_ para atender essas demandas.
+Verificamos a existência de 4 diretorias, sendo elas: _DEA_, _DEE_, _DGC_, _DPG_ e _OUTROS_. Essa última é devido a existência de informações solicitadas que não são de competência de nenhuma das cinco diretorias, daí a necessidade de uma última categoria _OUTROS_ para atender essas demandas.
 
-A seguir, um passo importante de reclassificação será executado devido ao número pequeno de solicitações para a diretoria _SIC_. Apenas uma solcitação existente no nosso banco de dados para essa diretoria. Iremos, portanto, unificar essa demanda à categoria _OUTROS_.
+Fica nítida o desbalanceamento do número de pedidos por categoria. Enquanto as diretorias _DEE_ e _DEA_ possuem, respectivamente, 244 e 240 pedidos verifica-se uma diferença grande do número de pedido das diretorias _DGC_ e _DPG_ e também da categoria _OUTRAS_, onde se forem somadas possuem um total de 221 pedidos conjuntamente.
 
-- Respostas e-SIC - Reclassificação Diretorias
+A seguir, um passo importante de reclassificação será executado devido ao número pequeno de solicitações para as diretorias DGC e DPG Apenas uma solcitação existente no nosso banco de dados para essa diretoria. Iremos, portanto, unificar essa demanda à categoria _OUTROS_. A seguir, verificamos nas tabela 01 e 02 a distribuição de pedidos por diretoria antes e após reclassificação das mesmas.
+
+#### Tabela1: Quantitativo de pedidos por diretoria - sem reclassificação
+Respostas e-SIC - Reclassificação Diretorias
 ```{r}
 LAI1 = LAI1 %>% 
-  mutate(DIRETORIA = ifelse(DIRETORIA == diretorias0[6],diretorias0[5],DIRETORIA))
-diretorias = levels(as.factor(LAI1$DIRETORIA))
-#dim(LAI1)
-#View(head(LAI1))
+  mutate(DIRETORIA = ifelse(DIRETORIAS == "DGC", "OUTROS",
+                            ifelse(DIRETORIAS == "DPG", "OUTROS",DIRETORIAS)))
+diretorias1 = levels(as.factor(LAI1$DIRETORIA))
 ```
 
+#### Tabela2: Quantitativo de pedidos por diretoria - após reclassificação
 - Tabela 02 número de solcitações/pedidos de informação - após reclassificação
 ```{r}
-pedidos_diretoria = LAI1 %>%
+pedidos_diretoria1 = LAI1 %>%
  count(DIRETORIA, sort = TRUE, name = "total_pedidos") 
-pedidos_diretoria %>%
+pedidos_diretoria1 %>%
   kable("latex", caption = "Quantitativo de solicitações por Diretoria/EPE via e-SIC - após reclassificação", 
         booktabs = T) %>%
   kable_styling(latex_options = c("striped", "hold_position"))
 ```
 
+Temos, finalmente um maior balanceamento nas categorias da nossa variável resposta com 244, 240 e 221 pedidos que foram destinios à _DEE_, _DEA_ e _OUTROS_, respectivamente. Onde _OUTROS_ é a categoria formada com a união dos pedidos das diretorias _DGC_, _DPG_ e _OUTROS_.
+
+A reclassificação foi, também, uma decisão suportada por análises préveias do presente estudo. Foi avaliada a viabilidade de aplicar o estudo com as categorias originais, entretanto na fase de modelagem preditiva o desempenho do modelo do Random Forest foi muito inferior comparado ao modelo após reclassificação. Um motivo plausível para a melhoria de performance pode ser por conta do maior balanceamento entre as categorias da variável resposta **Diretoria**, em questão.
+
+
 <!--
-```yaml
-Essa reclassificação foi efetuada visando um balanceamento nas categorias em questão. Podemos verificar uma bom equilíbrio entre o número de pedidos por categoria.
-```{r}
-LAI1 = LAI1 %>% 
-  mutate(DIR_NEW = ifelse(DIRETORIA == diretorias[1],diretorias[1],
-                          ifelse(DIRETORIA == diretorias[2],diretorias[2], "OUTRAS")))
+A ideia aqui é manter ambas as classificações para, posteriormente, realizar dois modelos preditivos da seguinte forma:
 
+Um primeiro modelo a ser realizado onde a variável resposta é dada por tr6es possíveis categorias: diretoria 1: _DEE_, diretoria 2: _DEA_ e _OUTROS_.
 
-
-
-LAI1 %>%
- count(DIR_NEW, sort = TRUE) %>%
-  kable("latex", caption = "Frequência de solicitações e-SIC por Diretoria/EPE (TOP2)",
-        booktabs = T) %>%
-  kable_styling(latex_options = c("striped", "hold_position"))
-
-```
+Um segundo modelo que, filtrando a resposta prévia do modelo 1 igual a categoria _OUTROS_, realiza-se, então, um novo modelo que classifica dentre as diretorias possíveis constando na categoria _OUTROS_ como sendo diretoria 3: _DGC_, diretoria 4: _DPG_ e por fim _OUTROS_
 -->
 
-As constatações anteriores foram feitas apenas na base de dados referente às respostas, donde temos a classificação das diretorias responsáveis por responder cada uma das demandas. É necessário, agora, unificar as bases de dados pertinentes a solicitações e respostas.
+- Unificando as Bases
 
-### Unificando as duas bases
+É necessário, agora, unificar as bases de dados pertinentes a solicitações e respostas.
+
+#### Join1: União das bases em questão
 ```{r}
-LAI = LAI %>% select(-DATA_RESPOSTA); #dim(LAI)
-LAI1 = LAI1 %>% select(-DATA); #dim(LAI1)
-DB = left_join(x = LAI, y = LAI1, by = "ID")
+LAI1 = LAI1 %>% select(-DATA_REGISTRO); #dim(LAI1)
+DB = left_join(x = LAI, y = LAI1, by = "Protocolo") %>%
+  drop_na()
 #View(head(DB))
 ```
 
 Ver Anexo 01 c/ amostra dos dados da tabela que serpá utilizada para manipulação daqui pra frente.
+
+- Evolução de pedidos:
+
+#### Data de registro do pedido
+
+```yaml
+db_evolPedido = DB %>% select(Protocolo, DIRETORIAS, DIRETORIA, DATA_REGISTRO) %>%
+  mutate(DIASEMANA_REGISTRO = weekdays(DB$DATA_REGISTRO),
+         HORA_REGISTRO = hour(DB$DATA_REGISTRO),
+         MES_REGISTRO = base::months.Date(DB$DATA_REGISTRO),
+         ANO_REGISTRO = year(DB$DATA_REGISTRO))
+
+ano_evolution = db_evolPedido %>% 
+  group_by(ANO_REGISTRO) %>% count()
+
+hc2_1 <- highchart() %>%
+  hc_add_series(data = ano_evolution$n, 
+                type = "column",
+                name = "Evolução",
+                showInLegend = TRUE,
+                tooltip = list(valueDecimals = 2, valuePrefix = "",
+                               valueSuffix = " pedidos registrados"),
+                               color = "#5F83EE", fillOpacity = 0.1) %>%
+  hc_yAxis(title = list(text = "Quantitativo de pedidos registrados"), 
+           allowDecimals = FALSE, max = max(ano_evolution$n),
+           labels = list(format = "{value}")) %>%
+  hc_xAxis(title = list(text = "Ano"),
+           categories = ano_evolution$ANO_REGISTRO,
+           tickmarkPlacement = "on",
+           opposite = FALSE) %>%
+  hc_title(#text = "Evolução de pedidos registrados via LAI (EPE)",
+           style = list(fontWeight = "bold")) %>% 
+  hc_subtitle(text = paste("")) %>%
+      hc_tooltip(valueDecimals = 2,
+                 pointFormat = "Importância: {point.y}")%>%
+                 #pointFormat = "Variável: {point.x} <br> Importância: {point.y}") 
+      hc_credits(enabled = TRUE, 
+                 #text = "Fonte: CGU, e-SIC. Elaboração: Leal, Alize; Pimenta, Ewerson.",
+                 style = list(fontSize = "10px")) %>%
+  hc_exporting(enabled = TRUE, filename = "F6_1-importance-Pimenta")
+#hc <- hc %>% 
+#  hc_add_theme(hc_theme_darkunica())
+hc2_1
+
+ano_evolution_DIR = db_evolPedido %>% 
+  group_by(DIRETORIAS, ANO_REGISTRO) %>% count()
+
+
+DEE = ano_evolution_DIR %>% filter(DIRETORIAS == "DEE") %>% arrange(desc(ANO_REGISTRO), .by_group = TRUE)
+DEA = ano_evolution_DIR %>% filter(DIRETORIAS == "DEA") %>% arrange(desc(ANO_REGISTRO), .by_group = TRUE)
+DGC = ano_evolution_DIR %>% filter(DIRETORIAS == "DGC") %>% arrange(desc(ANO_REGISTRO), .by_group = TRUE)
+DPG = ano_evolution_DIR %>% filter(DIRETORIAS == "DPG") %>% arrange(desc(ANO_REGISTRO), .by_group = TRUE)
+OUTROS = ano_evolution_DIR %>% filter(DIRETORIAS == "OUTROS") %>% arrange(desc(ANO_REGISTRO), .by_group = TRUE)
+
+hc2_2 <- highchart() %>%
+  hc_add_series(data = DEE$n, 
+                type = "line",
+                name = "DEE",
+                showInLegend = TRUE,
+                tooltip = list(valueDecimals = 0, valuePrefix = "",
+                               valueSuffix = " pedidos registrados"),
+                               color = "#5F83EE", fillOpacity = 0.1) %>%
+  hc_add_series(data = DEA$n, 
+                type = "line",
+                name = "DEA",
+                showInLegend = TRUE,
+                tooltip = list(valueDecimals = 0, valuePrefix = "",
+                               valueSuffix = " pedidos registrados"),
+                               color = "skyblue", fillOpacity = 0.1) %>%
+  hc_add_series(data = DGC$n, 
+                type = "line",
+                name = "DGC",
+                showInLegend = TRUE,
+                tooltip = list(valueDecimals = 0, valuePrefix = "",
+                               valueSuffix = " pedidos registrados"),
+                               color = "green", fillOpacity = 0.1) %>%
+  hc_add_series(data = DPG$n, 
+                type = "line",
+                name = "DPG",
+                showInLegend = TRUE,
+                tooltip = list(valueDecimals = 0, valuePrefix = "",
+                               valueSuffix = " pedidos registrados"),
+                               color = "black", fillOpacity = 0.1) %>%
+  hc_add_series(data = OUTROS$n, 
+                type = "area",
+                name = "OUTROS",
+                showInLegend = TRUE,
+                tooltip = list(valueDecimals = 0, valuePrefix = "",
+                               valueSuffix = " pedidos registrados"),
+                               color = "pink", fillOpacity = 0.5) %>%
+  
+  hc_yAxis(title = list(text = "Quantitativo de pedidos registrados"), 
+           allowDecimals = FALSE, max = max(DEE$n, DEA$n, DGC$n, DPG$n, OUTROS$n),
+           labels = list(format = "{value}"), #minorTickInterval = "auto",
+           #minorGridLineDashStyle = "LongDashDotDot",
+           showFirstLabel = TRUE,
+           showLastLabel = TRUE) %>%
+  hc_xAxis(title = list(text = "Ano"),
+           categories = ano_evolution$ANO_REGISTRO,
+           tickmarkPlacement = "on",
+           opposite = FALSE) %>%
+  hc_title(#text = "Evolução de pedidos registrados via LAI (EPE)",
+           style = list(fontWeight = "bold")) %>% 
+  hc_subtitle(text = paste("")) %>%
+      hc_tooltip(valueDecimals = 2,
+                 pointFormat = "Número de {point.y}")%>%
+                 #pointFormat = "Variável: {point.x} <br> Importância: {point.y}") 
+      hc_credits(enabled = TRUE, 
+                 #text = "Fonte: CGU, e-SIC. Elaboração: Leal, Alize; Pimenta, Ewerson.",
+                 style = list(fontSize = "10px")) %>%
+  hc_exporting(enabled = TRUE, filename = "F6_1-importance-Pimenta")
+#hc <- hc %>% 
+#  hc_add_theme(hc_theme_darkunica())
+hc2_2
+```
+
+```{r, out.width = "400px",echo = FALSE, eval = TRUE, message=FALSE, include = TRUE}
+knitr::include_graphics(paste0(PATH,"IMAGENS/Evolucao_pedidos.png"))
+```
+
+```yaml
+summary(DB$DATA_REGISTRO)
+class()
+inic = as.Date(min(DB$DATA_REGISTRO), format = "%m/%d/%y %H:%M:%S", tz = "UTC")
+fim = max(DB$DATA_REGISTRO), date_format())
+cat(paste0("Período de pedidos registrados que serão utilizados nessa análise ", inic, " até ", fim))
+
+time_index_h <- seq(from = as.POSIXct(inic), 
+                  to = as.POSIXct(fim), by = "hour")
+time_index_w <- weekdays(time_index_h)
+# or
+#time_index_w <- lubridate::wday(time_index_h)
+library(lubridate)
+date<-ymd_hms(“2016-06-06 09:45:12”)
+wday(date)
+```
+
+
+
+
+
 

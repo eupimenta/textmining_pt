@@ -1,0 +1,278 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+<!--      
+Essa Rotina é destinada a parte dos códigos necessários para implementação dos modelos preditivos cuja variável resposta é a DIRETORIA (variável categórica)
+-->
+
+### Partição dos dados
+
+Particionando a base de dados em Treino e Teste, esses dois (Treino e Teste) também terão armazenados as diretorias que foram responsaveis por cada pedido via amostragem probabilística dos dados originais separadamente das bases de Treino e Teste.
+
+Para amostragem aleatória simples
+
+```yaml
+db_modelo = db_modelo %>% select(-`2010`, -`1940`, -`1940`, -`2020`, -`2003`, -`2009`, -`1996`, -`4_7`, -`49`, -`85`, -`i'd`, -`in`)
+```
+
+```{r}
+db_modelo = db_modelo %>% select(-`in`)
+intrain <- createDataPartition(y = db_modelo$DIRETORIA, p = 0.65, list = FALSE)
+training <- db_modelo[intrain,]
+testing <- db_modelo[-intrain,]
+```
+
+
+
+### Modelagem 1 - Random Forest (RF)
+
+#### Random Forest (RF) - Metodologia
+
+__Descrição__
+1. Random Forest foi desenvolvido para agregar árvores de decisão (modelo de classificação);  
+2. Pode ser usado para modelo de classificação (p/ var. resposta categórica) ou regressão (no caso de haver variável resposta contínua);  
+3. Evita *overfitting*;  
+4. Permite trabalhar com um largo número de características de um conjunto de dados;  
+5. Auxilia na seleção de variáveis baseada em um algoritmo que calcula a importância por variável (assim, tendo conhecimento de quais variáveis são mais importantes, podemos usar essa informação para outros modelos de classificação);  
+6. User-friendly: apenas 2 parâmetros livres:
+
+- Trees - ntrees, default 500 (Nº de árvores);
+- Variáveis selecionadas via amostragem aleatória candidatas à cada "split"  (quebra da árvore) - mtry, default
+    $\sqrt{p}$ p/ classificação e $\frac{p}{3}$
+    p/ regressão (p: nº de features/variáveis);
+
+
+__Passo-a-Passo__
+
+É realizado em 3 passos:
+
+1. Desenha as amostras via bootstrap do número de árvores *ntrees*;  
+2. Para cada amostra via bootstrap, cresce o número de árvores "un-puned" para a escolha da melhor quebra da árvore baseado na amostra aleatória do valor predito de mtry a cada nó da árvore;  
+- 3. Faz classificação de novos valores usando a maioria de votos p/ classificação e usa a média p/ regressão baseada nas amostras de ntrees.
+
+
+#### Random Forest - Aplicação e Resultados
+
+Inicialmente utilizaremos o pacote `randomForest` que implmenta o algoritmo de Random Forest de Breiman (baseado na clusterização de Breiman, originalmente codificada em Fortran) que tem por finalidade classificar e/ou criar regressão. Além disso, pode ser usado em um modelo não supervisionado para avaliar proximidades entre pontos. 
+
+Estamos usando, a partir daqui, a base de treino.
+```{r}
+#library(randomForest)
+#library(rpart)
+#library(rpart.plot)
+#rf <- randomForest(proximity = T,ntree = 38,do.trace = T,WR~.,data=training)
+set.seed(9984512)
+# Training with classification tree
+rf <- rpart(DIRETORIA ~ ., data=training, method="class", xval = 4, )
+print(rf, digits = 3)
+attributes(rf)
+```
+```{r}
+plot(rf)
+text(rf, use.n = TRUE)
+```
+
+```{r}
+# Predict the testing set with the trained model 
+predictions <- predict(rf, testing, type = "class")
+
+# Accuracy and other metrics
+confusionMatrix(predictions, as.factor(testing$DIRETORIA))
+```
+
+
+Olhando as 6 primeiras observações real X predito
+```{r}
+p1 <- predict(rf,training)
+head(p1)
+head(training$DIRETORIA)
+```
+
+
+Selecionando uma árvore
+```{r}
+rp <- rpart::rpart(formula = DIRETORIA~.,data=training)
+```
+
+
+```{r}
+rpart::plotcp(rf)
+rpart.plot(rf)
+rpart.plot.version1(rf)
+```
+
+Outra forma de escrever o modelo é usando a função `randomForest( )`
+```{r}
+set.seed(09986755)
+rf1 <- randomForest(as.factor(DIRETORIA) ~ ., data=training,
+                    importance = TRUE,
+                    proximity = TRUE)
+rf1
+# Predict the testing set with the trained model
+predictions1 <- predict(rf1, testing, type = "class")
+
+# Accuracy and other metrics
+confusionMatrix(predictions1, as.factor(testing$DIRETORIA))
+```
+
+
+Importância de variáveis
+```{r}
+RF_importance = randomForest::importance(rf1)[order(randomForest::importance(rf1)[,1], decreasing = TRUE), ]
+randomForest::varImpPlot(rf1)
+```    
+```{r}
+plot(rf1)
+legend('topright', colnames(rf1$err.rate), col=1:5, fill=1:5)
+```
+
+A partir de $n=300$ árvores a taxa do erro **OOB (Out of Bag)** tende a estabilizar.
+
+##### Tuning do modelo
+
+Fixando, então, $n=300$ árvores
+```{r, include=FALSE, message=FALSE}
+# Tune mtry
+x = as.data.frame(training[,-1])
+y = (as.factor(training$DIRETORIA))
+t <- tuneRF(x = x, y = y,
+       stepFactor = 0.24,
+       plot = TRUE,
+       ntreeTry = 300,
+       trace = TRUE,
+       improve = 0.005)
+```
+
+Aparentemente $mtry = 30$ parece ser um bom palpite para o segundo parâmetro do random forest, uma vez que esse retornou menor taxa de erro **OOB**, $37,84\%$. Entretanto esse erro ainda é muito alto. Vamos reescrever o modelo com os parâmetros tunados.
+
+```{r}
+set.seed(09986755)
+rf2 <- randomForest(as.factor(DIRETORIA) ~ ., data=training,
+                    ntree = 300,
+                    mtry = 30,
+                    importance = TRUE,
+                    proximity = TRUE)
+rf2
+# Predict the testing set with the trained model
+predictions2 <- predict(rf2, testing, type = "class")
+
+# Accuracy and other metrics
+confusionMatrix(predictions2, as.factor(testing$DIRETORIA))
+
+p2 <- predict(rf2,training)
+head(p2)
+head(training$DIRETORIA)
+```
+
+```{r}
+RF_importance = randomForest::importance(rf2)[order(randomForest::importance(rf2)[,1], decreasing = TRUE), ]
+randomForest::varImpPlot(rf2)
+```
+
+Taxa de Erro Random Forest
+```{r}
+plot(rf2, main = "Taxa de erro OOB - Out of Bag")
+legend('topright', colnames(rf2$err.rate), col=1:5, fill=1:5)
+```
+
+Histograma do Número de nós por árvore
+```{r}
+hist(treesize(rf2), probability = T,
+     main = "Distribuição do nº de nós por ávore",
+     col = "pink")
+```
+
+
+```yaml
+edit(MDSplot)
+fig.align="center"
+(MDIM_treino = MDSplot(rf2, training$DIRETORIA, pch=20))
+(MDIM_teste = MDSplot(rf2, testing$DIRETORIA, pch=20))
+sum(MDIM_treino$eig[1:2])
+```
+
+Vamos excluir as variáveis que não retornaram valor de importância para o algoritmo do random forest.
+
+```{r}
+RF_importance = randomForest::importance(rf2)[order(randomForest::importance(rf2)[,1], decreasing = TRUE), ]
+```
+
+```{r}
+RF1 = data.frame(variables = rownames(RF_importance), importance = RF_importance[,4])
+RF1 = RF1[order(RF1$importance, decreasing = TRUE),]
+rownames(RF1) <- NULL
+summary(RF1)
+```
+
+```yaml
+RF2 = RF1[1:10,]
+hc6_1 <- highchart() %>%
+  hc_add_series(data = RF2$importance, 
+                type = "bar",
+                name = "Importância",
+                showInLegend = FALSE,
+                tooltip = list(valueDecimals = 2, valuePrefix = "", valueSuffix = "")) %>%
+  hc_yAxis(title = list(text = "Importância"), 
+           allowDecimals = TRUE, max = 12,
+           labels = list(format = "{value}")) %>%
+  hc_xAxis(title = list(text = "Fatores"),
+           categories = RF2$variables,
+           tickmarkPlacement = "on",
+           opposite = FALSE) %>%
+  hc_title(text = "Importância por fator - Random Forest",
+           style = list(fontWeight = "bold")) %>% 
+  hc_subtitle(text = paste("")) %>%
+      hc_tooltip(valueDecimals = 2,
+                 pointFormat = "Importância: {point.y}")%>%
+                 #pointFormat = "Variável: {point.x} <br> Importância: {point.y}") 
+      hc_credits(enabled = TRUE, 
+                 text = "Fonte: CGU, e-SIC. Elaboração: Ewerson Pimenta.",
+                 style = list(fontSize = "10px")) %>%
+  hc_exporting(enabled = TRUE, filename = "F6_1-importance-Pimenta")
+#hc <- hc %>% 
+#  hc_add_theme(hc_theme_darkunica())
+hc6_1
+```
+
+Vamos excluir todas as variáveis que retornaram importância menor ou igual a zero.
+```{r}
+variaveis_sem_importancia = RF1 %>% filter(as.character(importance) <= 0)
+summary(variaveis_sem_importancia)
+variaveis_sem_importancia = as.character(variaveis_sem_importancia$variables)
+```
+
+
+
+```{r}
+training1 = training %>% select(-c(variaveis_sem_importancia))
+test1 = test %>% select(-c(variaveis_sem_importancia))
+db_modelo1 = db_modelo %>% select(-c(variaveis_sem_importancia))
+```
+
+
+
+```{r}
+set.seed(09986755)
+rf3 <- randomForest(as.factor(DIRETORIA) ~ ., data=db_modelo,
+                    ntree = 300,
+                    mtry = 30,
+                    importance = TRUE,
+                    proximity = TRUE)
+rf3
+# Predict the testing set with the trained model
+predictions3 <- predict(rf3, testing, type = "class")
+
+# Accuracy and other metrics
+confusionMatrix(predictions3, as.factor(testing$DIRETORIA))
+
+p3 <- predict(rf3,training)
+head(p3)
+head(training$DIRETORIA)
+
+p3_test <- predict(rf3,test)
+head(p3_test)
+head(test$DIRETORIA)
+```
