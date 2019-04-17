@@ -1,28 +1,50 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
 <!--      
-Essa Rotina é destinada a importação de dados do projeto de mineração de texto em pedidos via Sistema Eletrônico de Serviço de Informação ao Cidadão (e-SIC)
+Essa Rotina é destinada a importação, estrutura e transformação de dados do projeto de mineração de texto em pedidos via Sistema Eletrônico de Serviço de Informação ao Cidadão (e-SIC)
 -->
 
+#### Tabela1: Pedidos e-SIC
 - Pedidos e-SIC
-```{r}
-FILE = "/DATA/relatorio_pedidos.ods"
-db_raw = readODS::read.ods(file = paste0(PATH,FILE), sheet = 1); # dim(db_raw)
-dbnames = db_raw[1,]; db_raw = db_raw[-1,]; 
-colnames(db_raw) = c("ID", "DataRegistro", "DATA_PRAZOATEND", "DESCRI_PEDIDO",
-                     "RESUMO_PEDIDO", "DATA_RESPOSTA")
-#View(head(db_raw))
-LAI = db_raw
+```{r, message=FALSE, include=FALSE, results='hide'}
+FILE = "DATA/Pedidos_eSIC.xlsx"
+library(readxl)
+Pedidos_eSIC = read_excel(path = paste0(PATH,FILE), 
+    sheet = "ConsultaPedidos", col_types = c("numeric", 
+        "text", "blank", "date", "date", 
+        "text", "text", "text", "blank", 
+        "text", "date"), na = "-")
+# View(Pedidos_eSIC)
+LAI = Pedidos_eSIC # armazena o banco original
 ```
 
+Estrutura dos dados
+```{r}
+glimpse(Pedidos_eSIC)
+```
+
+#### Tabela2: Respostas Diretorias da EPE
 - Respostas e-SIC (DIRETORIAS EPE)
-```{r}
-FILE1 = "DATA/relatorio_respostas.xlsx"
-db1_raw = readxl::read_excel(paste0(PATH,FILE1), sheet = "DADOS", col_names = TRUE); 
-# dim(db1_raw); names(db1_raw)
-colnames(db1_raw) = c("ID", "DATA", "SOLICITACAO", "DIRETORIA", "DATA_RESPOSTA")
-#View(head(db1_raw))
-LAI1 = db1_raw
+```{r, message=FALSE, include=FALSE, results='hide'}
+FILE1 <- "DATA/Respostas_EPE.xlsx"
+library(readxl)
+Respostas_EPE <- read_excel(path = paste0(PATH,FILE1), 
+    sheet = "pedidos SIC EPE", col_types = c("numeric", 
+        "date", "text"))
+#View(Respostas_EPE)
+LAI1 = Respostas_EPE
 ```
 
+Estrutura dos dados
+```{r}
+glimpse(Respostas_EPE)
+```
+
+
+#### Tabela3: Stopwords
 - Stopwords
 ```{r cars}
 FILE2 = "DATA/stopwords_PT_FINAL.csv"
@@ -34,6 +56,7 @@ stopwords_pt = as.character(stopwords_pt)
 stopwords_pt[1:14]
 ```
 
+#### Tabelas4,5,6: Dicionários de variáveis e-SIC
 - Dicionário
 > BASE DE DADOS - REAL PRO TEXTO DO TCC
 
