@@ -12,29 +12,49 @@ Essa Rotina é destinada a importação de dados do projeto de mineração de te
 #### Filtro1: tabela consulta de pedidos
 Filtrando apenas as variáveis de interesse do estudo na tabela de consulta de pedidos
 ```{r}
+LAI = Pedidos_eSIC
 LAI = LAI %>% select(Protocolo, `Data de Abertura`, `Prazo de Atendimento`, `Descrição do Pedido`, `Resumo da Solicitação`, `Data da Resposta`)
 ```
 
-#### Transformação1: reescrevendo colunas
+#### Transformação1: renomeando colunas
 Reescrevendo o nome das variáveis de ambas tablelas
 ```{r}
 colnames(LAI) = c("Protocolo", "DATA_REGISTRO", "DATA_PRAZOATEND", "DESCRI_PEDIDO",
                      "RESUMO_PEDIDO", "DATA_RESPOSTA")
+LAI1 = Respostas_EPE
 colnames(LAI1) = c("Protocolo", "DATA_REGISTRO", "DIRETORIAS")
+# glimpse(LAI1)
 ```
+
+#### Transformação2: transforma as.factor( ) variável DIRETORIAS
+character em factor
+<!--
+```{r}
+LAI1$DIRETORIAS = as.factor(LAI1$DIRETORIAS)
+```
+-->
 
 > Análise1: Quantitativo de pedidos por diretoria 
 
-#### Transformação2: substitui NA por OUTROS (coluna DIRETORIAS)
+#### Transformação3: substitui NA por OUTROS (coluna DIRETORIAS)
+Primeiro conta o número de pedidos por diretoria (observações por categorias)
 ```{r}
-LAI1 = 
-  LAI1 %>% 
+LAI1 %>% 
+    group_by(DIRETORIAS) %>%  count(sort = TRUE) %>%
+  kable("latex", caption = "Quantitativo de solicitações por Diretoria/EPE via e-SIC - substituição NA em OUTROS", 
+        booktabs = T, format.args = list(decimal.mark = ',', big.mark = ".")) %>%
+  kable_styling(latex_options = c("striped", "hold_position"))
+```
+
+Existe um valor NA, vamos subistitui-lo como OUTROS
+```{r}
+LAI1 = LAI1 %>% 
   replace_na(list(DIRETORIAS = "OUTROS"))
-diretorias = levels(as.factor(LAI1$DIRETORIAS))
 ```
 
 #### Tabela1: Quantitativo de pedidos por diretoria - sem reclassificação
-- Tabela 01 número de solcitações/pedidos de informação 
+- Tabela 01 número de solcitações/pedidos de informação (sem NA)
+
 ```{r}
 pedidos_diretoria = LAI1 %>%
  count(DIRETORIAS, sort = TRUE, name = "total_pedidos") 
@@ -51,12 +71,21 @@ Fica nítida o desbalanceamento do número de pedidos por categoria. Enquanto as
 A seguir, um passo importante de reclassificação será executado devido ao número pequeno de solicitações para as diretorias DGC e DPG Apenas uma solcitação existente no nosso banco de dados para essa diretoria. Iremos, portanto, unificar essa demanda à categoria _OUTROS_. A seguir, verificamos nas tabela 01 e 02 a distribuição de pedidos por diretoria antes e após reclassificação das mesmas.
 
 #### Tabela1: Quantitativo de pedidos por diretoria - sem reclassificação
+Vamos criar uma nova variável: DIRETORIA que é basicamente uma reclassificação da variável DIRETORIAS
+
+Vamos, primeiro, armazenar um vetor com o nome das categorias de DIRETORIAS originais.
+```{r}
+(diretorias = levels(as.factor(LAI1$DIRETORIAS)))
+```
+
+
 Respostas e-SIC - Reclassificação Diretorias
 ```{r}
+# LAI1$DIRETORIAS = as.character(LAI1$DIRETORIAS) # glimpse(LAI1)   
 LAI1 = LAI1 %>% 
   mutate(DIRETORIA = ifelse(DIRETORIAS == "DGC", "OUTROS",
                             ifelse(DIRETORIAS == "DPG", "OUTROS",DIRETORIAS)))
-diretorias1 = levels(as.factor(LAI1$DIRETORIA))
+(diretorias1 = levels(as.factor(LAI1$DIRETORIA)))
 ```
 
 #### Tabela2: Quantitativo de pedidos por diretoria - após reclassificação
@@ -85,7 +114,7 @@ Um segundo modelo que, filtrando a resposta prévia do modelo 1 igual a categori
 
 - Unificando as Bases
 
-É necessário, agora, unificar as bases de dados pertinentes a solicitações e respostas.
+É necessário, agora, unificar as bases de dados pertinentes às solicitações e respostas.
 
 #### Join1: União das bases em questão
 ```{r}
@@ -93,6 +122,16 @@ LAI1 = LAI1 %>% select(-DATA_REGISTRO); #dim(LAI1)
 DB = left_join(x = LAI, y = LAI1, by = "Protocolo") %>%
   drop_na()
 #View(head(DB))
+```
+
+```{r}
+glimpse(DB)
+```
+
+
+```{r}
+cat(paste0("Existem ", dim(DB)[1]," observações/pedidos na base de dados."))
+cat(paste0("Com registros de pedidos datados entre ", format(min(DB$DATA_REGISTRO), '%d de %B de %Y')," a ", format(max(DB$DATA_REGISTRO), '%d de %B de %Y.')))
 ```
 
 Ver Anexo 01 c/ amostra dos dados da tabela que serpá utilizada para manipulação daqui pra frente.
