@@ -1,0 +1,12 @@
+name: TCCAPPV48
+title: TCCAPPV48
+username:
+account: pimenta
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 956772
+bundleId: 2117686
+url: https://pimenta.shinyapps.io/TCCAPPV48/
+when: 1559204134.49631
+asMultiple: FALSE
+asStatic: FALSE

@@ -34,6 +34,12 @@ LAI1$DIRETORIAS = as.factor(LAI1$DIRETORIAS)
 ```
 -->
 
+
+#### Transformação3: cria a variável PEDIDO = RESUMO + DESCRIÇÃO
+```{r}
+LAI$PEDIDO = paste(LAI$RESUMO_PEDIDO, LAI$DESCRI_PEDIDO)
+```
+
 > Análise1: Quantitativo de pedidos por diretoria 
 
 #### Transformação3: substitui NA por OUTROS (coluna DIRETORIAS)
@@ -79,9 +85,10 @@ Vamos, primeiro, armazenar um vetor com o nome das categorias de DIRETORIAS orig
 ```
 
 
+#### Transformação4 - Reclassificação das Diretorias
 Respostas e-SIC - Reclassificação Diretorias
 ```{r}
-# LAI1$DIRETORIAS = as.character(LAI1$DIRETORIAS) # glimpse(LAI1)   
+LAI1$DIRETORIAS = as.character(LAI1$DIRETORIAS) # glimpse(LAI1)   
 LAI1 = LAI1 %>% 
   mutate(DIRETORIA = ifelse(DIRETORIAS == "DGC", "OUTROS",
                             ifelse(DIRETORIAS == "DPG", "OUTROS",DIRETORIAS)))

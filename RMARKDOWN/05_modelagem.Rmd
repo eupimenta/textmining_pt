@@ -12,8 +12,21 @@ Essa Rotina é destinada a parte dos códigos necessários para implementação 
 
 Particionando a base de dados em Treino e Teste, esses dois (Treino e Teste) também terão armazenados as diretorias que foram responsaveis por cada pedido via amostragem probabilística dos dados originais separadamente das bases de Treino e Teste.
 
+```{r}
+#db_modelo = as_tibble(cbind(select(DB,DIRETORIA),fe))
+#getwd()
+#setwd("/Users/ewersonpimenta/Desktop/ESIC_TCC/TCC_v2.1/RMARKDOWN/WEB_APP/")
+#write.csv(db_modelo0, file = "db_modelo_rf_v21.csv", row.names = FALSE)
+#db_modelo = read.csv("db_modelo_rf_v10.csv",header = T); dim(db_modelo)
+#db_modelo = db_modelo %>% select(-r,-venc)
+#write.csv(db_modelo, file = "db_modelo_rf_v11.csv", row.names = FALSE)
+db_modelo$DIRETORIA <- as.factor(db_modelo$DIRETORIA)
+#levels(db_modelo$DIRETORIA)
+```
+
 Para amostragem aleatória simples
 ```{r}
+set.seed(098798) # 756446 ou 75452 (OOB_erro: 35,63% ACC: 65,44%) # 2967 (OOB_erro: 34,15% ACC: 64,98%)  # 1743098 (OOB_erro: 34,4% ACC: 67,28%) #V1 098798 (OOB_erro: 23,34% ACC: 70,51%)
 intrain <- createDataPartition(y = db_modelo$DIRETORIA, p = 0.65, list = FALSE)
 training <- db_modelo[intrain,]
 testing <- db_modelo[-intrain,]
@@ -101,11 +114,6 @@ rpart.plot.version1(rf)
 
 Outra forma de escrever o modelo é usando a função `randomForest( )`
 ```{r}
-db_modelo = db_modelo %>% select(-`pad's`)
-intrain <- createDataPartition(y = db_modelo$DIRETORIA, p = 0.65, list = FALSE)
-training <- db_modelo[intrain,]
-testing <- db_modelo[-intrain,]
-
 set.seed(09986755)
 rf1 <- randomForest(as.factor(DIRETORIA) ~ ., data=training,
                     importance = TRUE,
@@ -125,7 +133,8 @@ RF_importance = randomForest::importance(rf1)[order(randomForest::importance(rf1
 randomForest::varImpPlot(rf1)
 ```    
 
-```{r, out.width = "400px",echo = FALSE, eval = TRUE, message=FALSE, include = TRUE}
+```yaml
+{r, out.width = "400px",echo = FALSE, eval = TRUE, message=FALSE, include = TRUE}
 knitr::include_graphics(paste0(PATH,"IMAGENS/RF_var_importance.png"))
 ```
 
@@ -134,11 +143,11 @@ plot(rf1)
 legend('topright', colnames(rf1$err.rate), col=1:5, fill=1:5)
 ```
 
-A partir de $n=300$ árvores a taxa do erro **OOB (Out of Bag)** tende a estabilizar.
+A partir de $n=420$ árvores a taxa do erro **OOB (Out of Bag)** tende a estabilizar.
 
 ##### Tuning do modelo
 
-Fixando, então, $n=300$ árvores
+Fixando, então, $n=420$ árvores
 ```{r, include=FALSE, message=FALSE}
 # Tune mtry
 x = as.data.frame(training[,-1])
@@ -146,18 +155,22 @@ y = (as.factor(training$DIRETORIA))
 t <- tuneRF(x = x, y = y,
        stepFactor = 0.24,
        plot = TRUE,
-       ntreeTry = 300,
+       ntreeTry = 420,
        trace = TRUE,
        improve = 0.09)
 ```
 
-Aparentemente $mtry = 45$ parece ser um bom palpite para o segundo parâmetro do random forest, uma vez que esse retornou menor taxa de erro **OOB**, $37,35\%$. Entretanto esse erro ainda é muito alto. Vamos reescrever o modelo com os parâmetros tunados.
+Aparentemente $mtry = 26$ parece ser um bom palpite para o segundo parâmetro do random forest, uma vez que esse retornou menor taxa de erro **OOB**, $27,03\%$. Entretanto esse erro ainda é muito alto. Vamos reescrever o modelo com os parâmetros tunados.
+
+Aparentemente $mtry = 28$ parece ser um bom palpite para o segundo parâmetro do random forest, uma vez que esse retornou menor taxa de erro **OOB**, $26,54\%$. Entretanto esse erro ainda é muito alto. Vamos reescrever o modelo com os parâmetros tunados.
+
+Aparentemente $mtry = 38$ parece ser um bom palpite para o segundo parâmetro do random forest, uma vez que esse retornou menor taxa de erro **OOB**, $26,54\%$. Entretanto esse erro ainda é muito alto. Vamos reescrever o modelo com os parâmetros tunados.
 
 ```{r}
 set.seed(09986755)
 rf2 <- randomForest(as.factor(DIRETORIA) ~ ., data=training,
-                    ntree = 300,
-                    mtry = 45,
+                    ntree = 420,
+                    mtry = 38,
                     importance = TRUE,
                     proximity = TRUE)
 rf2
@@ -165,15 +178,22 @@ rf2
 predictions2 <- predict(rf2, testing, type = "class")
 
 # Accuracy and other metrics
-confusionMatrix(predictions2, as.factor(testing$DIRETORIA))
+(rf2_CONFUSIONM = confusionMatrix(predictions2, as.factor(testing$DIRETORIA)))
 
 p2 <- predict(rf2,training)
 as.character(head(p2))
 head(training$DIRETORIA)
 ```
 
-Acurácia de aproximadamente $66\%$ na base de teste.
-E as taxas de erro de classificação foram 25%, 44% e 45% para _DEA_, _DEE_ e _OUTROS_, respectivamente. Houve um melhor desempenho na classificação do modelo para a categoria _DEA_
+```{r}
+(DEA_erroCLASS = sum(rf2_CONFUSIONM$table[1,2:3])/ sum(rf2_CONFUSIONM$table[1,]))
+(DEE_erroCLASS = sum(rf2_CONFUSIONM$table[2,c(1,3)])/ sum(rf2_CONFUSIONM$table[2,]))
+(OUTROS_erroCLASS = sum(rf2_CONFUSIONM$table[3,1:2])/ sum(rf2_CONFUSIONM$table[3,]))
+```
+
+
+Acurácia de aproximadamente $72\%$ na base de teste.
+E as taxas de erro de classificação foram 30%, 44% e 45% para _DEA_, _DEE_ e _OUTROS_, respectivamente. Houve um melhor desempenho na classificação do modelo para a categoria _DEA_
 ```{r}
 RF_importance = randomForest::importance(rf2)[order(randomForest::importance(rf2)[,1], decreasing = TRUE), ]
 randomForest::varImpPlot(rf2)
@@ -250,18 +270,26 @@ variaveis_sem_importancia = as.character(variaveis_sem_importancia$variables)
 training1 = training %>% select(-(variaveis_sem_importancia))
 testing1 = testing %>% select(-(variaveis_sem_importancia))
 db_modelo1 = db_modelo %>% select(-(variaveis_sem_importancia))
+#DB_HISTORICO <- db_modelo0 %>% select(-(variaveis_sem_importancia))
+#write.csv(DB_HISTORICO, file = "DB_LAI-EPE_HISTORICO.csv", row.names = FALSE)
 ```
 
 ```{r}
-set.seed(756446)
-rf3 <- randomForest(as.factor(DIRETORIA) ~ ., data=db_modelo1,
-                    ntree = 300,
-                    mtry = 45,
+cat(paste0("O número de variáveis da base de históricos (cheia) reduziu de ", dim(training)[2], " para ",dim(training1)[2], "."))
+```
+
+
+```{r}
+set.seed(09986755) #2967
+rf3 <- randomForest(as.factor(DIRETORIA) ~ ., data=training1,
+                    ntree = 420,
+                    mtry = 28,
                     importance = TRUE,
                     proximity = TRUE)
 rf3
 # Predict the testing set with the trained model
-predictions3 <- predict(rf3, testing1, type = "class")
+predictions3 <- predict(rf3, testing1[,-1], type = "class")
+#predict(rf3, testing1[,-1], type = "prob")
 
 # Accuracy and other metrics
 confusionMatrix(predictions3, as.factor(testing1$DIRETORIA))
@@ -272,22 +300,28 @@ head(training1$DIRETORIA)
 ```
 
 ```{r}
-set.seed(756446)
+matriz_conf <- confusionMatrix(predictions3, as.factor(testing1$DIRETORIA))
+matriz_conf$overall[1]
+cat(paste0("A taxa de erro OOB do modelo final é de ", round(mean(colMeans(rf3$err.rate))*100,1), "%. E a acurácia do modelo verificada na base de teste é de ", round(matriz_conf$overall[1]*100,1),"%."))
+```
+
+```{r}
+set.seed(09986755)
 rf4 <- randomForest(as.factor(DIRETORIA) ~ ., data=db_modelo,
-                    ntree = 300,
+                    ntree = 420,
                     mtry = 45,
                     importance = TRUE,
                     proximity = TRUE)
 rf4
 # Predict the testing set with the trained model
-predictions4 <- predict(rf4, testing, type = "class")
+#predictions4 <- predict(rf4, testing, type = "class")
 
 # Accuracy and other metrics
-confusionMatrix(predictions4, as.factor(testing$DIRETORIA))
+#confusionMatrix(predictions4, as.factor(testing$DIRETORIA))
 
-p4 <- predict(rf4,training)
-as.character(head(p4))
-head(training$DIRETORIA)
+#p4 <- predict(rf4,training)
+#as.character(head(p4))
+#head(training$DIRETORIA)
 ```
 
 
@@ -296,17 +330,32 @@ Comparacao do poder de predicao dos modelos treinados e propostos
 as.character(p1[1:15])
 as.character(rf$y[1:15])
 as.character(p2[1:15])
-as.character(p4[1:15])
+#as.character(p4[1:15])
 training$DIRETORIA[1:15]
 ```
 
-```yaml
-edit(MDSplot)
+```{r}
+#edit(MDSplot)
 fig.align="center"
-(MDIM_treino = MDSplot(rf4, training$DIRETORIA, pch=20))
-(MDIM_teste = MDSplot(rf4, testing$DIRETORIA, pch=20))
-sum(MDIM_treino$eig[1:2])
-sum(MDIM_teste$eig[1:2])
+training1$DIRETORIA = as.factor(training1$DIRETORIA)
+testing1$DIRETORIA = as.factor(testing1$DIRETORIA)
+db_modelo$DIRETORIA = as.factor(db_modelo$DIRETORIA)
+
+MDSplot(rf3, training1$DIRETORIA, pch=20) # MDIM_treino
+MDSplot(rf3, testing1$DIRETORIA, pch=20) # MDIM_teste
+MDSplot(rf4, db_modelo$DIRETORIA, pch=20) # MDIM_BASECHEIA
+sum(MDSplot(rf3, training1$DIRETORIA, pch=20)$eig[1:2]); # sum(MDIM_teste$eig[1:2])  # is the same
+sum(MDSplot(rf4, db_modelo$DIRETORIA, pch=20)$eig[1:2]); # sum(MDIM_teste$eig[1:2])  # is the same
 ```
+
+
+
+```yaml
+DIR = db_modelo$DIRETORIA
+x = db_modelo[,-1]; colnames(x) <- c(DIR)
+x = x[,1:300]
+hchart(princomp(x, cor = FALSE))
+```
+
 
 

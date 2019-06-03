@@ -1,21 +1,22 @@
 #### Gráficos de comparação de frequência de palavras por diretorias (2 a 2)
-`COM STOPWORDS`
 
 É importante ressaltar que os gráficos a seguir mostram, apenas, a comparação de frequência de palavras existentes em ambas diretorias. Ou seja, palavras existentes em apenas uma diretoria serão desconsideradas para a geração destes.
 
 ```{r}
+#diretoria_palavras_noSTOP$DIRETORIA = as.factor(diretoria_palavras_noSTOP$DIRETORIA)
+diretoria_palavras_noSTOP$DIRETORIA = as.character(diretoria_palavras_noSTOP$DIRETORIA)
 PROP_PALAVRA = diretoria_palavras_noSTOP %>%
-    #mutate(palavra = str_extract(palavra, "[a-z']+")) %>%
+    mutate(palavra = str_extract(palavra, "[a-z']+")) %>%
     mutate(proportion = n / sum(n)) %>%
-    select(-n) %>%
-    spread(DIRETORIA, proportion)
+    select(-n) %>% spread(DIRETORIA, proportion)
 ```
 
 
 - DEE X DEA
 ```{r}
 freq00 <- PROP_PALAVRA %>%
-    gather(DIRETORIA, proportion, c(`DEA`))
+  #gather(key = DIRETORIA, value = proportion, !!2)
+    gather(key = DIRETORIA, value = proportion, `DEA`)
   
   library(scales)
   # expect a warning about rows with missing values being removed
@@ -24,10 +25,8 @@ freq00 <- PROP_PALAVRA %>%
     geom_abline(color = "gray40", lty = 2) +
     geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
     geom_text(aes(label = palavra), check_overlap = TRUE, vjust = 1.5) +
-    scale_x_log10(labels = percent_format(big.mark = ".", decimal.mark = ",", 
-                                          accuracy = 1), limits = c(NA, 0.01)) +
-    scale_y_log10(labels = percent_format(big.mark = ".", decimal.mark = ",", 
-                                          accuracy = 1), limits = c(NA, 0.01)) +
+    scale_x_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
+    scale_y_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
     scale_color_gradient(limits = c(0, 0.001),
                          low = "darkslategray4", high = "gray75") +
     facet_wrap(~DIRETORIA, ncol = 1) +
@@ -52,10 +51,8 @@ freq03 <- PROP_PALAVRA %>%
     geom_abline(color = "gray40", lty = 2) +
     geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
     geom_text(aes(label = palavra), check_overlap = TRUE, vjust = 1.5) +
-    scale_x_log10(labels = percent_format(big.mark = ".", decimal.mark = ",", 
-                                          accuracy = 1), limits = c(NA, 0.01)) +
-    scale_y_log10(labels = percent_format(big.mark = ".", decimal.mark = ",", 
-                                          accuracy = 1), limits = c(NA, 0.01)) +
+    scale_x_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
+    scale_y_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
     scale_color_gradient(limits = c(0, 0.001),
                          low = "darkslategray4", high = "gray75") +
     facet_wrap(~DIRETORIA, ncol = 1) +
@@ -86,10 +83,8 @@ freq06 <- PROP_PALAVRA %>%
     geom_abline(color = "gray40", lty = 2) +
     geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
     geom_text(aes(label = palavra), check_overlap = TRUE, vjust = 1.5) +
-    scale_x_log10(labels = percent_format(big.mark = ".", decimal.mark = ",", 
-                                          accuracy = 1), limits = c(NA, 0.01)) +
-    scale_y_log10(labels = percent_format(big.mark = ".", decimal.mark = ",", 
-                                          accuracy = 1), limits = c(NA, 0.01)) +
+    scale_x_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
+    scale_y_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
     scale_color_gradient(limits = c(0, 0.001),
                          low = "darkslategray4", high = "gray75") +
     facet_wrap(~DIRETORIA, ncol = 1) +
@@ -108,7 +103,7 @@ cor.test(data = freq06[freq06$DIRETORIA == "OUTROS",],
              ~ proportion + `DEA`)
 ```
 
-<!--
+
 ```yaml
 DEE <- diretoria_palavras %>%
   filter(DIRETORIA == "DEE")
@@ -154,12 +149,12 @@ library(tidyr)
     theme(legend.position="none") +
     labs(y = "OUTROS", x = NULL)
 ```
--->
 
 
 
-<!--
-```{r}
+
+
+```yaml
 palavras_diretoria_DEE <- DB %>%
   select(DIRETORIA, DESCRI_PEDIDO) %>%
   filter(DIRETORIA == "DEE") %>%
@@ -181,4 +176,3 @@ palavras_diretoria_OUTROS <- DB %>%
   #count(DIRETORIA,palavra, sort = TRUE) %>%
   #ungroup() %>%  droplevels() %>% drop_na()
 ```
--->

@@ -21,7 +21,7 @@ Citar o que é preoposição.
 ```{r}
 library(tidytext)
 palavras <- DB %>%
-  unnest_tokens(palavra, DESCRI_PEDIDO) %>%
+  unnest_tokens(palavra, PEDIDO) %>%
   count(palavra, sort = TRUE) %>%
   ungroup()
 
@@ -36,7 +36,7 @@ palavras[0:10,] %>%
 Cria o objeto de palavras por diretoria
 ```{r}
 palavras_diretoria <- DB %>%
-  unnest_tokens(palavra, DESCRI_PEDIDO) %>%
+  unnest_tokens(palavra, PEDIDO) %>%
   count(DIRETORIA,palavra, sort = TRUE) %>%
   ungroup() %>%  droplevels() %>% drop_na()
 
@@ -122,7 +122,7 @@ Temos que o número médio de palavras por pedido é parecido entre as diretoria
 - Distribuição da freq. de palavras usadas em solicitações por diretoria (histograma)
 ```{r}
 diretoria_palavras <- DB %>%
-  unnest_tokens(palavra, DESCRI_PEDIDO) %>%
+  unnest_tokens(palavra, PEDIDO) %>%
   count(DIRETORIA, palavra, sort = TRUE) %>%
   ungroup()
 
@@ -244,7 +244,7 @@ diretoria_palavras_tfidf <- diretoria_palavras %>%
 #options(digits=4)
 set.seed(7456)
 amostra1 = sample(seq(1:dim(diretoria_palavras_tfidf)[1]), 10, replace = FALSE)
-round_df(diretoria_palavras_tfidf[amostra1,],6) # %>%
+round_df(diretoria_palavras_tfidf[amostra1,],6)  %>%
   kable("latex", caption = "Total de palavras, total de pedidos e número médio de palavras 
         por pedido e diretoria", 
         booktabs = T, format.args = list(decimal.mark = ',', big.mark = ".")) %>%
@@ -288,7 +288,7 @@ Ou simplesmente verificamos através de um gráfico
 ##### Figura2: Termos mais relevantes por diretoria pela estatística **tf_idf**
 ```{r}
 diretoria_palavras <- DB %>%
-  unnest_tokens(palavra, DESCRI_PEDIDO) %>%
+  unnest_tokens(palavra, PEDIDO) %>%
   count(DIRETORIA, palavra, sort = TRUE) %>%
   ungroup()
 diretoria_palavras = left_join(diretoria_palavras, total_palavras, by = "DIRETORIA")
@@ -320,12 +320,37 @@ plot_diretoria_palavras %>%
 #### Filtrando um pedaço de texto
 ```{r}
 DB %>%
-  filter(str_detect(DESCRI_PEDIDO, "r0")) %>%
-  select(DESCRI_PEDIDO) %>%
+  filter(str_detect(PEDIDO, "in")) %>%
+  select(PEDIDO) %>%
   head()
 ```
 
 Uma limpeza removendo palavras sem significado semântico (**stop words**) pode auxiliar o algoritmo a retornar palavras ainda mais acertivas, bem como o tratamento de **stemming**, abordados a seguir.
+
+Colocar tudo em minúsculo
+```{r}
+DB$PEDIDO1 = tolower(DB$PEDIDO)
+```
+
+### Stopwords
+Com o arquivo de **stop words** , vamos remover as palavras sem sentido semântico
+```yaml
+mystopwords <- data_frame(palavra = stopwords_pt)
+for (j in 1:dim(DB)[1]) {
+  for(i in 1:dim(mystopwords)[1]){
+  stopw = as.character(mystopwords[i,1])
+  DB$PEDIDO1[j] = gsub(paste0("\\ ",stopw," "), " ", as.character(DB$PEDIDO1[j]))
+}
+}
+```
+
+Ou simplesmente
+```{r}
+mystopwords <- data_frame(palavra = stopwords_pt)
+DB$PEDIDO1 <- removeWords(DB$PEDIDO1, mystopwords$palavra)
+#View(head(DB))
+```
+
 
 
 ### Stemming
@@ -341,14 +366,16 @@ região $\propto$ regiões
 Usando o pacote `ptstem`
 ```{r}
 library(ptstem)
-stemming1 = ptstem(DB$DESCRI_PEDIDO)
+temp_stem1 = proc.time()
+stemming1 = ptstem(DB$PEDIDO1)
+tempo_stem1 = proc.time() - temp_stem1
 ```
   
 - Frequência de palavras por diretoria do stemming 1
 ```{r}
 diretoria_palavras_stem1 <- DB %>%
-  mutate(DESCRI_PEDIDO = stemming1) %>%
-  unnest_tokens(palavra, DESCRI_PEDIDO) %>%
+  mutate(PEDIDO1 = stemming1) %>%
+  unnest_tokens(palavra, PEDIDO1) %>%
   count(palavra, sort = TRUE) %>%
   ungroup()
 ```
@@ -360,14 +387,16 @@ cat(paste0("Utilizando o algoritmo de stemming do pacote 'ptstem' o número de p
 Usando o pacote `rslp`
 ```{r}
 library(rslp)
-stemming2 = rslp(DB$DESCRI_PEDIDO)
+temp_stem2 = proc.time()
+stemming2 = rslp(DB$PEDIDO1)
+tempo_stem2 = proc.time() - temp_stem2
 ```
 
 - Frequência de palavras por diretoria do stemming 2
 ```{r}
 diretoria_palavras_stem2 <- DB %>%
-  mutate(DESCRI_PEDIDO = stemming2) %>%
-  unnest_tokens(palavra, DESCRI_PEDIDO) %>%
+  mutate(PEDIDO1 = stemming2) %>%
+  unnest_tokens(palavra, PEDIDO1) %>%
   count(palavra, sort = TRUE) %>%
   ungroup()
 ```
@@ -377,155 +406,326 @@ cat(paste0("Utilizando o algoritmo de stemming do pacote 'rslp' o número de pal
 ```
 
 
-Uma redução considerável no número de termos ocorreu ao usar o algoritmo `ptstem`, cerca de $33\%$ de redução de termos versus $7\%$ utilziando o algoritmo `rslp`, ou seja, o algoritmo ptstem foi mais eficiente na tarefa de agrupar os semelhantes (termos únicos).
+Uma redução considerável no número de termos ocorreu ao usar o algoritmo `ptstem`, cerca de $61\%$ de redução de termos versus $36\%$ utilziando o algoritmo `rslp`, ou seja, o algoritmo ptstem foi mais eficiente na tarefa de agrupar os semelhantes (termos únicos).
 
 Vale ressaltar, tabmbém, o tempo de processamento que ambos os algoritmos requerem.
 
 ```{r}
-temp_stem1 = proc.time()
-teste0 = ptstem(DB$DESCRI_PEDIDO)
-tempo_stem1 = proc.time() - temp_stem1
-remove(teste0)
+cat(paste0("O tempo de processamento do stemming rslp( ) foi de ",round(tempo_stem1[3],2), ' segundos decorridos.'))
+remove(tempo_stem1)
 ```
 
 ```{r}
-temp_stem2 = proc.time()
-teste00 = rslp(DB$DESCRI_PEDIDO)
-tempo_stem2 = proc.time() - temp_stem2
-remove(teste00)
+cat(paste0("O tempo de processamento do stemming rslp( ) foi de ",round(tempo_stem2[3],2), ' segundos decorridos.'))
+remove(tempo_stem2)
 ```
 
-O tempo decorrido para processamento do algoritmo do `ptstem` foi de aproximadamente 12,9 segundos versus 0,9 segundo decorrido para o processamento do algoritmo do `rslp`. Logo, o `rslp` é quase 14 vezes mais eficiente em termos de tempo de processamento. Além disso, o `rslp` remove acentuações e caracteres como "ç". Isso irá nos ajudar mais a frente quando utilizarmos os principais termos como variáveis binárias e preditoras do modelo de classificação.
+O tempo decorrido para processamento do algoritmo do `ptstem` foi de aproximadamente 12 segundos versus 1 segundo decorrido para o processamento do algoritmo do `rslp`. Logo, o `rslp` é quase 12 vezes mais eficiente em termos de tempo de processamento. Além disso, o `rslp` remove acentuações e caracteres como "ç". Isso irá nos ajudar mais a frente quando utilizarmos os principais termos como variáveis binárias e preditoras do modelo de classificação.
 
-Entretanto, o algoritmo mais lento, `ptstem`, foi mais interessante em termos de redução do número de termos únicos, cerca de $26\%$ menos termos únicos em relação ao outro algoritmo. Além disso, por se tratar de uma base de dados relativamente pequena, 625 pedidos, e pouco mais de 4 mil termos únicos em todo o conjunto de texto, além disso vamos utilizar de um alto poder de processamento da máquina no referido estudo. Optamos, portanto, por utilizar ambos algoritmos. Vamos, primeiro, aplicar o removedor de sufixos da lingua portuguesa `rslp` seguido do `ptstem`.
+Entretanto, o algoritmo mais lento, `ptstem`, foi mais interessante em termos de redução do número de termos únicos, cerca de $25\%$ menos termos únicos em relação ao outro algoritmo. Além disso, por se tratar de uma base de dados relativamente pequena, 625 pedidos, e pouco mais de 4 mil termos únicos em todo o conjunto de texto, além disso vamos utilizar de um alto poder de processamento da máquina no referido estudo. Optamos, portanto, por utilizar ambos algoritmos. Vamos, primeiro, aplicar o removedor de sufixos da lingua portuguesa `rslp` seguido do `ptstem`.
 
-Cria, antes, uma variáveil DESCRI_PEDIDO1 que repete os passos feitos aos termos quanto ao stemming so que no texto fonte.
+
+Comparação do texto original c/ os 2 algoritmos e o final implementados após diferentes **stemmings**
 ```{r}
+DB$PEDIDO[227]
+#stemming1[227]
+#stemming2[227]
+DB$PEDIDO1[227]
+```
+
+
+```{r}
+DB$PEDIDO[350]
+#stemming1[350]
+#stemming2[350]
+DB$PEDIDO1[350]
+```
+
+```{r}
+DB$PEDIDO[615]
+#stemming1[615]
+#stemming2[615]
+DB$PEDIDO1[615]
+```
+
+```{r}
+DB$PEDIDO[617]
+#stemming1[617]
+#stemming2[617]
+DB$PEDIDO1[617]
+```
+
+```{r}
+DB$PEDIDO[619]
+#stemming1[619]
+#stemming2[619]
+DB$PEDIDO1[619]
+```
+
+
+
+
+Cria, antes, uma variáveil PEDIDO1 que repete os passos feitos aos termos quanto ao stemming so que no texto fonte.
+
+```{r}
+DB$PEDIDO1 = tolower(DB$PEDIDO)
+mystopwords <- data_frame(palavra = stopwords_pt)
+DB$PEDIDO1 <- removeWords(DB$PEDIDO1, mystopwords$palavra) # Remove Stop Words
+DB$PEDIDO1 <- removePunctuation(DB$PEDIDO1) # Remove Punctuation
+ 
+rm_accent <- function(str,pattern="all") { 
+   if(!is.character(str))
+    str <- as.character(str)
+
+  pattern <- unique(pattern)
+
+  if(any(pattern=="Ç"))
+    pattern[pattern=="Ç"] <- "ç"
+
+  symbols <- c(
+    acute = "áéíóúÁÉÍÓÚýÝ",
+    grave = "àèìòùÀÈÌÒÙ",
+    circunflex = "âêîôûÂÊÎÔÛ",
+    tilde = "ãõÃÕñÑ",
+    umlaut = "äëïöüÄËÏÖÜÿ",
+    cedil = "çÇ"
+  )
+
+  nudeSymbols <- c(
+    acute = "aeiouAEIOUyY",
+    grave = "aeiouAEIOU",
+    circunflex = "aeiouAEIOU",
+    tilde = "aoAOnN",
+    umlaut = "aeiouAEIOUy",
+    cedil = "cC"
+  )
+
+  accentTypes <- c("´","`","^","~","¨","ç")
+
+  if(any(c("all","al","a","todos","t","to","tod","todo")%in%pattern)) # opcao retirar todos
+    return(chartr(paste(symbols, collapse=""), paste(nudeSymbols, collapse=""), str))
+
+  for(i in which(accentTypes%in%pattern))
+    str <- chartr(symbols[i],nudeSymbols[i], str) 
+
+  return(str)
+}
+
+
+DB$PEDIDO1 <- rm_accent(DB$PEDIDO1) # Remove accent patterns
+#View(head(DB))
+#View(DB$PEDIDO1)
+```
+
+```{r}
+#View(head(DB))
 ### CARACTERES
-DB$DESCRI_PEDIDO1 = DB$DESCRI_PEDIDO
-DB$DESCRI_PEDIDO1 = gsub("-","",DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 = gsub("[:.:]","",DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 = gsub("[:,:]","",DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 = gsub("[:':]","",DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 = gsub("[:!:]","",DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 = gsub("[:?:]","",DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 = gsub("[:-:]","",DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 = gsub("[:__:]","",DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 = gsub("[:;:]","",DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 = gsub("[:/:]","",DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 = gsub("[:(:]","",DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 = gsub("[:):]","",DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 = gsub("[:%:]","",DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 = gsub("[:º:]","",DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 = gsub("[:°:]","",DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 = gsub("[:ª:]","",DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 = gsub("\\d+","",DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 = gsub("[0-9]","",DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 = gsub("[:\n\t:]"," ",DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 = gsub("[:\t:]","",DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 = gsub("[:\n:]","",DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 = gsub("\\s+"," ",DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 = gsub("\"","",DB$DESCRI_PEDIDO1)
+DB$PEDIDO1 = gsub("-"," ",DB$PEDIDO1)
+DB$PEDIDO1 = gsub("[:.:]","",DB$PEDIDO1)
+DB$PEDIDO1 = gsub("[:,:]","",DB$PEDIDO1)
+DB$PEDIDO1 = gsub("[:':]"," ",DB$PEDIDO1)
+DB$PEDIDO1 = gsub("[:!:]","",DB$PEDIDO1)
+DB$PEDIDO1 = gsub("[:?:]","",DB$PEDIDO1)
+#DB$PEDIDO1 = gsub("[:-:]","_",DB$PEDIDO1)
+DB$PEDIDO1 = gsub("[:_:]"," ",DB$PEDIDO1)
+DB$PEDIDO1 = gsub("[:__:]","",DB$PEDIDO1)
+DB$PEDIDO1 = gsub("[:;:]","",DB$PEDIDO1)
+DB$PEDIDO1 = gsub("[:&:]"," ",DB$PEDIDO1)
+DB$PEDIDO1 = gsub("[:/:]"," ",DB$PEDIDO1)
+DB$PEDIDO1 = gsub("[:(:]","",DB$PEDIDO1)
+DB$PEDIDO1 = gsub("[:):]","",DB$PEDIDO1)
+DB$PEDIDO1 = gsub("[:%:]","",DB$PEDIDO1)
+DB$PEDIDO1 = gsub("[:º:]","",DB$PEDIDO1)
+DB$PEDIDO1 = gsub("[:°:]","",DB$PEDIDO1)
+DB$PEDIDO1 = gsub("[:ª:]","",DB$PEDIDO1)
+DB$PEDIDO1 = gsub("\\d+","",DB$PEDIDO1)
+DB$PEDIDO1 = gsub("[0-9]"," ",DB$PEDIDO1)
+DB$PEDIDO1 = gsub("[:\n\t:]"," ",DB$PEDIDO1)
+DB$PEDIDO1 = gsub("[:\t:]","",DB$PEDIDO1)
+DB$PEDIDO1 = gsub("[:\n:]","",DB$PEDIDO1)
+DB$PEDIDO1 = gsub("[:§:]","",DB$PEDIDO1)
+DB$PEDIDO1 = gsub("\\s+"," ",DB$PEDIDO1)
+DB$PEDIDO1 = gsub("\""," ",DB$PEDIDO1)
+
 
 ### STEMMINGS
-DB$DESCRI_PEDIDO1 = ptstem(rslp(DB$DESCRI_PEDIDO1), 
-                           complete = TRUE)
-DB$DESCRI_PEDIDO1 = gsub("\\s+"," ",DB$DESCRI_PEDIDO1)
+#DB$PEDIDO1[143]
+#DB$PEDIDOz = rslp(DB$PEDIDO1)
+#DB$PEDIDOz = ptstem(DB$PEDIDO1, complete = FALSE)
+DB$PEDIDO1 = ptstem(rslp(DB$PEDIDO1), complete = FALSE)
+DB$PEDIDO1 = gsub("\\s+"," ",DB$PEDIDO1)
+#teste1 = ptstem(rslp(DB$PEDIDO1), complete = FALSE)
+#DB$PEDIDOz[143]
+#DB$PEDIDOz[537]
 
-
-### PALAVRAS
-DB$DESCRI_PEDIDO1 =tolower(DB$DESCRI_PEDIDO1)
-#DB$DESCRI_PEDIDO1 =gsub("\\b(Leiloes)", "leilao", DB$DESCRI_PEDIDO1)
-#DB$DESCRI_PEDIDO1 =gsub("\\b(Leiloar)", "leilao", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(leiloes)", "leilao", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(leiloar)", "leilao", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(leiloes)", "leilao", DB$DESCRI_PEDIDO1)
-#DB$DESCRI_PEDIDO1 =gsub("\\b(Energetica)", "eletrica", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(energetica)", "eletrica", DB$DESCRI_PEDIDO1)
-#DB$DESCRI_PEDIDO1 =gsub("\\b(Eletricas)", "eletrica", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(eletricas)", "eletrica", DB$DESCRI_PEDIDO1)
-#DB$DESCRI_PEDIDO1 =gsub("\\b(Eletricos)", "eletrica", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(eletricos)", "eletrica", DB$DESCRI_PEDIDO1)
-#DB$DESCRI_PEDIDO1 =gsub("\\b(Eletrico)", "eletrica", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(eletrico)", "eletrica", DB$DESCRI_PEDIDO1)
-#DB$DESCRI_PEDIDO1 =gsub("\\b(Eletricidade)", "eletrica", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(eletricidade)", "eletrica", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(energetica)", "eletrica", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(energeticas)", "eletrica", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(energetico)", "eletrica", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(energeticos)", "eletrica", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(energia)", "eletrica", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(energias)", "eletrica", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(energy)", "eletrica", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(energies)", "eletrica", DB$DESCRI_PEDIDO1)
-x#DB$DESCRI_PEDIDO1 =gsub("\\b(Termoeletricas)", "termoeletrica", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(termoeletricas)", "termoeletrica", DB$DESCRI_PEDIDO1)
-#DB$DESCRI_PEDIDO1 =gsub("\\b(Termeletrica)", "termoeletrica", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(termeletrica)", "termoeletrica", DB$DESCRI_PEDIDO1)
-#DB$DESCRI_PEDIDO1 =gsub("\\b(Termeletricas)", "termoeletrica", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(termeletricas)", "termoeletrica", DB$DESCRI_PEDIDO1)
-#DB$DESCRI_PEDIDO1 =gsub("\\b(Hidreletricas)", "hidreletrica", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(hidreletricas)", "hidreletrica", DB$DESCRI_PEDIDO1)
-#DB$DESCRI_PEDIDO1 =gsub("\\b(Hidroeletricas)", "hidreletrica", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(hidroeletricas)", "hidreletrica", DB$DESCRI_PEDIDO1)
-#DB$DESCRI_PEDIDO1 =gsub("\\b(Hidroeletricos)", "hidreletrica", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(hidroeletricos)", "hidreletrica", DB$DESCRI_PEDIDO1)
-#DB$DESCRI_PEDIDO1 =gsub("\\b(Hidroeletrica)", "hidreletrica", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(hidroeletrica)", "hidreletrica", DB$DESCRI_PEDIDO1)
-#DB$DESCRI_PEDIDO1 =gsub("\\b(Administracao)", "administracao", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(administracao)", "administracao", DB$DESCRI_PEDIDO1)
-#DB$DESCRI_PEDIDO1 =gsub("\\b(Administrativo)", "administracao", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(administrativo)", "administracao", DB$DESCRI_PEDIDO1)
-#DB$DESCRI_PEDIDO1 =gsub("\\b(Administrativos)", "administracao", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(administrativos)", "administracao", DB$DESCRI_PEDIDO1)
-#DB$DESCRI_PEDIDO1 =gsub("\\b(Administrativa)", "administracao", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(administrativa)", "administracao", DB$DESCRI_PEDIDO1)
-#DB$DESCRI_PEDIDO1 =gsub("\\b(Administrativas)", "administracao", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(administrativas)", "administracao", DB$DESCRI_PEDIDO1)
-#DB$DESCRI_PEDIDO1 =gsub("\\b(Consumo)", "consumo", DB$DESCRI_PEDIDO1)
-#DB$DESCRI_PEDIDO1 =gsub("\\b(Consumidores)", "consumo", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(consumidores)", "consumo", DB$DESCRI_PEDIDO1)
-#DB$DESCRI_PEDIDO1 =gsub("\\b(Consumidor)", "consumo", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(consumidor)", "consumo", DB$DESCRI_PEDIDO1)
-#DB$DESCRI_PEDIDO1 =gsub("\\b(Consumir)", "consumo", DB$DESCRI_PEDIDO1)
-DB$DESCRI_PEDIDO1 =gsub("\\b(consumir)", "consumo", DB$DESCRI_PEDIDO1)
-#DB$DESCRI_PEDIDO1 =gsub("\\b(http)>", "", DB$DESCRI_PEDIDO1)
-#View(DB$DESCRI_PEDIDO1)
+## REMOVE STOP WORDS novamente
+mystopwords <- data_frame(palavra = stopwords_pt)
+DB$PEDIDO1 <- removeWords(DB$PEDIDO1, mystopwords$palavra)
 ```
 
+```yaml
+### PALAVRAS
+#DB$PEDIDO1 =gsub("\\b(Leiloes)", "leilao", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\b(Leiloar)", "leilao", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(leiloes)", "leilao", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(leiloar)", "leilao", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(leiloes)", "leilao", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\b(Energetica)", "eletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(energetica)", "eletrica", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\b(Eletricas)", "eletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(eletricas)", "eletrica", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\b(Eletricos)", "eletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(eletricos)", "eletrica", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\b(Eletrico)", "eletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(eletrico)", "eletrica", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\b(Eletricidade)", "eletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(eletricidade)", "eletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(energetica)", "eletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(energeticas)", "eletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(energetico)", "eletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(energeticos)", "eletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(energia)", "eletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(energias)", "eletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(energy)", "eletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(energies)", "eletrica", DB$PEDIDO1)
+x#DB$PEDIDO1 =gsub("\\b(Termoeletricas)", "termoeletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(termoeletricas)", "termoeletrica", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\b(Termeletrica)", "termoeletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(termeletrica)", "termoeletrica", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\b(Termeletricas)", "termoeletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(termeletricas)", "termoeletrica", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\b(Hidreletricas)", "hidreletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(hidreletricas)", "hidreletrica", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\b(Hidroeletricas)", "hidreletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(hidroeletricas)", "hidreletrica", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\b(Hidroeletricos)", "hidreletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(hidroeletricos)", "hidreletrica", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\b(Hidroeletrica)", "hidreletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(hidroeletrica)", "hidreletrica", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\b(Administracao)", "administracao", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(administracao)", "administracao", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\b(Administrativo)", "administracao", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(administrativo)", "administracao", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\b(Administrativos)", "administracao", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(administrativos)", "administracao", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\b(Administrativa)", "administracao", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(administrativa)", "administracao", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\b(Administrativas)", "administracao", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(administrativas)", "administracao", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\b(Consumo)", "consumo", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\b(Consumidores)", "consumo", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(consumidores)", "consumo", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\b(Consumidor)", "consumo", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(consumidor)", "consumo", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\b(Consumir)", "consumo", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\b(consumir)", "consumo", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\b(http)>", "", DB$PEDIDO1)
+#View(DB$PEDIDO1)
+
+
+DB$PEDIDO1 =gsub("\\ leiloes ", "leilao", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\ leiloar ", "leilao", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\ leiloes ", "leilao", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\ Energetica ", "eletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\ energetica ", "eletrica", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\ Eletricas ", "eletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\ eletricas ", "eletrica", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\ Eletricos ", "eletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\ eletricos ", "eletrica", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\ Eletrico ", "eletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\ eletrico ", "eletrica", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\ Eletricidade ", "eletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\ eletricidade ", "eletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\ energetica ", "eletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\ energeticas ", "eletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\ energetico ", "eletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\ energeticos ", "eletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\ energia ", "eletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\ energias ", "eletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\ energy ", "eletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\ energies ", "eletrica", DB$PEDIDO1)
+x#DB$PEDIDO1 =gsub("\\ Termoeletricas ", "termoeletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\ termoeletricas ", "termoeletrica", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\ Termeletrica ", "termoeletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\ termeletrica ", "termoeletrica", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\ Termeletricas ", "termoeletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\ termeletricas ", "termoeletrica", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\ Hidreletricas ", "hidreletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\ hidreletricas ", "hidreletrica", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\ Hidroeletricas ", "hidreletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\ hidroeletricas ", "hidreletrica", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\ Hidroeletricos ", "hidreletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\ hidroeletricos ", "hidreletrica", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\ Hidroeletrica ", "hidreletrica", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\ hidroeletrica ", "hidreletrica", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\ Administracao ", "administracao", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\ administracao ", "administracao", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\ Administrativo ", "administracao", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\ administrativo ", "administracao", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\ Administrativos ", "administracao", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\ administrativos ", "administracao", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\ Administrativa ", "administracao", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\ administrativa ", "administracao", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\ Administrativas ", "administracao", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\ administrativas ", "administracao", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\ Consumo ", "consumo", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\ Consumidores ", "consumo", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\ consumidores ", "consumo", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\ Consumidor ", "consumo", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\ consumidor ", "consumo", DB$PEDIDO1)
+#DB$PEDIDO1 =gsub("\\ Consumir ", "consumo", DB$PEDIDO1)
+DB$PEDIDO1 =gsub("\\ consumir ", "consumo", DB$PEDIDO1)
+```
 #### Frequência de palavras por diretoria
 ```{r}
 diretoria_palavras_stem3 <- DB %>%
-  unnest_tokens(palavra, DESCRI_PEDIDO1) %>%
+  unnest_tokens(palavra, PEDIDO1) %>%
   count(DIRETORIA, palavra, sort = TRUE) %>%
   ungroup()
 ```
 
+
+### Stopwords
+Com o arquivo de **stop words** previamente inserido vamos, primeiramente, transforma-lo em um data_frame a fim de futuramente utilizá-lo para extrair do texto palavras em comum.
+
+#### Freq. de palavras sem **stopwords** por diretoria
+```{r}
+mystopwords <- data_frame(palavra = stopwords_pt)
+diretoria_palavras_noSTOP <- anti_join(diretoria_palavras_stem3, mystopwords, 
+                                       by = "palavra")
+```
+
+
 #### Filtrando um pedaço de texto
 ```yaml
 DB %>%
-  filter(str_detect(DESCRI_PEDIDO1, "leiloes")) %>%
-  select(DESCRI_PEDIDO1) %>%
+  filter(str_detect(PEDIDO1, "leiloes")) %>%
+  select(PEDIDO1) %>%
   head()
 ```
 
 
 Comparação do texto original c/ os 2 algoritmos e o final implementados após diferentes **stemmings**
 ```{r}
-DB$DESCRI_PEDIDO[227]
-ptstem(DB$DESCRI_PEDIDO[227])
-rslp(DB$DESCRI_PEDIDO[227])
-DB$DESCRI_PEDIDO1[227]
+DB$PEDIDO[227]
+ptstem(DB$PEDIDO[227])
+rslp(DB$PEDIDO[227])
+DB$PEDIDO1[227]
 ```
 
 
 ```{r}
-DB$DESCRI_PEDIDO[350]
-ptstem(DB$DESCRI_PEDIDO[350])
-rslp(DB$DESCRI_PEDIDO[350])
-DB$DESCRI_PEDIDO1[350]
+DB$PEDIDO[350]
+ptstem(DB$PEDIDO[350])
+rslp(DB$PEDIDO[350])
+DB$PEDIDO1[350]
 ```
 
+
+```{r}
+DB$PEDIDO[617]
+DB$PEDIDO1[617]
+```
 
 ##### Figura4: Termos mais relevantes por diretoria pela estatística **tf_idf**, após **stemming** porém ainda com **stop words**
 Vamos, agora, plotar as quinze palavras mais relevantes de acordo com a estatística __tf_idf__, por diretoria
@@ -551,16 +751,6 @@ plot_diretoria_palavras_stem %>%
 #dev.off()
 ```
 
-
-### Stopwords
-Com o arquivo de **stop words** previamente inserido vamos, primeiramente, transforma-lo em um data_frame a fim de futuramente utilizá-lo para extrair do texto palavras em comum.
-
-#### Freq. de palavras sem **stopwords** por diretoria
-```{r}
-mystopwords <- data_frame(palavra = stopwords_pt)
-diretoria_palavras_noSTOP <- anti_join(diretoria_palavras_stem3, mystopwords, 
-                                       by = "palavra")
-```
 
 ##### Figura5: Termos mais relevantes por diretoria pela estatística **tf_idf**, após **stemming** e sem **stop words**
 Sim, a remoção de **stop words** não alterou em nada a ordem das 4 palavras mais relevantes de acordo com a estatística.
@@ -642,7 +832,9 @@ knitr::include_graphics(paste0(PATH,wordcloud2OUTROS))
 #### Comparação de frequências dois a dois (sem stopwords e com stemming)
 Vamos agora comparar a frequência de palavras entre diretorias. Antes disso, vamos criar documentos de texto no formato tidy separadamente para cada uma das 3 cateorias: _DEA_, _DEE_ e _OUTROS_.
 
-```{r, child="03_1_compara2a2.Rmd"}
+
+```yaml
+{r, child="03_1_compara2a2.Rmd"}
 
 ```
 
