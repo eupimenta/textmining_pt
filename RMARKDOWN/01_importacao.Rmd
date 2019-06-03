@@ -1,0 +1,88 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+<!--      
+Essa Rotina é destinada a importação, estrutura e transformação de dados do projeto de mineração de texto em pedidos via Sistema Eletrônico de Serviço de Informação ao Cidadão (e-SIC)
+-->
+
+#### Tabela1: Pedidos e-SIC
+- Pedidos e-SIC
+```{r, message=FALSE, include=FALSE, results='hide'}
+FILE = "DATA/Pedidos_eSIC.xlsx"
+library(readxl)
+Pedidos_eSIC = read_excel(path = paste0(PATH,FILE), 
+    sheet = "ConsultaPedidos", col_types = c("numeric", 
+        "text", "blank", "date", "date", 
+        "text", "text", "text", "blank", 
+        "text", "date"), na = "-")
+# View(Pedidos_eSIC)
+LAI = Pedidos_eSIC # armazena o banco original
+```
+
+Estrutura dos dados
+```{r}
+glimpse(Pedidos_eSIC)
+```
+
+#### Tabela2: Respostas Diretorias da EPE
+- Respostas e-SIC (DIRETORIAS EPE)
+```{r, message=FALSE, include=FALSE, results='hide'}
+FILE1 <- "DATA/Respostas_EPE.xlsx"
+library(readxl)
+Respostas_EPE <- read_excel(path = paste0(PATH,FILE1), 
+    sheet = "pedidos SIC EPE", col_types = c("numeric", 
+        "date", "text"))
+#View(Respostas_EPE)
+LAI1 = Respostas_EPE
+```
+
+Estrutura dos dados
+```{r}
+glimpse(Respostas_EPE)
+```
+
+
+#### Tabela3: Stopwords
+- Stopwords
+```{r cars}
+FILE2 = "DATA/stopwords_PT_FINAL.csv"
+stopwords_pt = read.csv(paste0(PATH,FILE2), sep = ';', header = F, encoding = "UTF-8")
+stopwords_pt = stopwords_pt[,-2]; 
+cat(paste0("O nosso vetor de stopwords contém ",length(stopwords_pt), " palavras únicas"))
+## dim(stopwords_pt); class(stopwords_pt)
+stopwords_pt = as.character(stopwords_pt)
+stopwords_pt[1:14]
+```
+
+#### Tabelas4,5,6: Dicionários de variáveis e-SIC
+- Dicionário
+> BASE DE DADOS - REAL PRO TEXTO DO TCC
+
+Dicionário de variáveis - PEDIDOS
+```{r}
+dicionario = "DATA/Dicionario-Dados-Exportacao.txt"
+dic_pedidos = read.delim(dicionario, sep = "-", skip = 3, header = FALSE, nrows = 21) %>%
+  select(-V1)
+colnames(dic_pedidos) = c("Nome das variáveis", "Tipo e descrição da variável")
+#dimnames(dic_pedidos); View(dic_pedidos)
+```
+
+Dicionário de variáveis - RECURSOS
+```{r}
+dic_recursos = read.delim(dicionario, sep = "-", skip = 30, header = FALSE, nrows = 17) %>%
+  select(-V1)
+colnames(dic_recursos) = c("Nome das variáveis", "Tipo e descrição da variável")
+#dimnames(dic_recursos); View(dic_recursos)
+```
+
+Dicionário de variáveis - SOLICITANTES
+```{r}
+dicionario = "DATA/Dicionario-Dados-Exportacao.txt"
+dic_solicitantes = read.delim(file = dicionario, sep = "-", skip = 53, header = FALSE, nrows = 10) %>%
+  select(-V1)
+colnames(dic_solicitantes) = c("Nome das variáveis", "Tipo e descrição da variável")
+#dimnames(dic_solicitantes); View(dic_solicitantes)
+```
+

@@ -1,0 +1,88 @@
+---
+title: "Programa de retenção de clientes de telecomunicações"
+subtitle: "Análise preditiva de migração de clientes"
+author: 
+- name: Ewerson C. Pimenta 
+  email: pimentaeu@yahoo.com
+- name: Marcos Antônio E. de Oliveira
+  email: marcoseuzbio@gmail.com
+- name: João Pedro Menescal
+  email: jp922@hotmail.com
+date: "`r format(Sys.time(), 'Rio de Janeiro, %d de %B de %Y')`"
+output:
+  html_document:
+    fig_caption: yes
+    df_print: paged
+    code_folding: hide
+    mathjax: null
+    highlight: espresso
+    pandoc_args: ["-V", "classoption=twocolumn"]
+    keep_md: yes
+    number_sections: no
+    theme: lumen
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+      toc_depth: 7
+  pdf_document:
+    fig_caption: yes
+    number_sections: yes
+    toc: yes
+  md_document:
+    variant: markdown_github
+csl: apa.csl
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+  
+  
+  
+  <!-- highlight: tango pygments kate monochrome zenburn haddock textmate -->
+  <!-- theme: cerulean, journal, flatly, readable, spacelab, united, cosmo, lumen, paper, sandston, simplex, yeti -->
+  
+  <!----------  INÍCIO CONFIG  ---------->
+  
+```{r INSTALPACK, echo = FALSE, eval = TRUE, message=FALSE, include = FALSE}
+list.of.packages <- c("arules","dplyr","HardyWeinberg","cdparcoord", "knitr", "knitLatex", "kableExtra", "tidyverse", "tidyverse", "cdparcoord", "cowplot", "ggpubr", "gridExtra", "stringi", "highcharter")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+```
+
+```{r READPACK, echo = FALSE, eval = TRUE, message=FALSE, include = FALSE}
+library(highcharter)
+library(knitr)
+library(knitLatex)
+library(kableExtra)
+library(tidyverse)
+library(cdparcoord)
+library(cowplot)
+library(ggpubr)
+library(gridExtra)
+```
+  
+## Introdução
+  
+  Essa análise tem como principal foco verificar padrões e coomportamentos em clientes de telecomunicações que possuem maior propenção a deixar de ser cliente da empresa (sair da base / migração de clientes). Através de análise exploratória de dados incia-se um processo de descoberta dos dados e possíveis variáveis que viabilizam o reconhecimento de padrões de clientes de telco e, posteriormente, o uso de técnicas de análise preditiva para determinar os clientes que com maior probabilidade irão migrar.
+
+|![](E:/2018-2/IC/PROJETOS/PROJ1/CLUSTER/IMG/xivqxtyhbvapmpjxyuhh.jpg)|
+|:---:|
+-------------------------------------
+  
+  
+## Banco de Dados
+
+```{r, child="1_DescriBanco.Rmd"}
+
+```
+
+
+## Análise Exploratória
+
+```{r, child="2_AnalExplora.Rmd"}
+
+```
+
+

@@ -1,0 +1,321 @@
+---
+title: "Analise de Agurpamentos"
+output: html_notebook
+---
+## Lendo dados
+```{r}
+setwd("E:/2018-2/IC/PROJETOS/PROJ1/CLUSTER/RMD")
+list.of.packages <- c("cluster")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+getwd()
+dados = read.csv2("WA_Fn-UseC_-Telco-Customer-Churn.csv", sep = ";", header = TRUE)
+str(dados)
+```
+
+### Objetivos
+Neste trabalho desejo testar metódos de agrupamento para serviços de telefone. Serão testados 3 medidas de agrupamentos: Euclidiana, Manhattan e Gower.
+
+#### Distancias
+Sejam os vetores $$X = (x_1,x_2,...,x_n)$$ e $$Y = (y_1, y_2,..., y_n)$$ a distancia euclidiana entre esses dois pontos é dada por
+$$d(X,Y)= \sqrt{\sum_{i=1}^{n}(x_i-y_i)^2}$$
+já a distância de Manhattan é dado por
+$$d(X,Y)= \sum_{i=1}^{n}/x_i-y_i/ $$
+é visivel que a distância euclidiana e de manhattan considera as variáveis como numéricas.
+Já a distância trabalha com variáveis mistas
+$$d(i,j)= \frac{\sum_{k=1}^{n} w_k\delta_{ij}^kd_{ij}^k}{\sum_{k=1}^{n} w_k\delta_{ij}^k}$$
+onde d(i,j) é a distancia média entre as variáveis,w é o peso de cada variável, neste caso todos tem peso igua, \delta é 0 se a variável é NA e 1 caso contrário e $d_{ij}^k$ é contribuição de cada variável k, sendo 0 se as duas variáveis são iguais e 1 caso contrário, caso sejá númerica é o valor absoluto dos dois valores dividido pela distancia entre o valor minimo e máximo da variável.
+
+## Transformando as variáveis
+Para poder testar as distancias euclidianas e de manhattan necessito tranformar as variávei em numéricas
+```{r}
+dados2<-dados[,-1]
+for (i in 1:length(dados2[1,])) {
+  dados2[,i]<-as.numeric(dados2[,i])
+}
+str(dados2)
+```
+Vendo um resumo dos dados
+```{r}
+summary(dados2) 
+```
+fazendo histograma
+```{r}
+hist(dados2$MonthlyCharges)
+hist(dados2$TotalCharges)
+hist(dados2$tenure)
+```
+plotando
+```{r}
+plot(dados2$TotalCharges,dados2$MonthlyCharges)
+plot(dados2$TotalCharges,dados2$ternure)
+plot(dados2$MonthlyCharges,dados2$ternure)
+```
+Não parece haver nenhum valor que necessite de transformação
+### Análise de Cluster
+Obtendo a matriz de distâncias e gerando a sillhouette
+```{r}
+library("cluster")
+dist_go <- daisy(dados[-1],metric="gower")
+sil_width <- c(NA)
+kk=4
+for(i in 2:kk){
+  
+  pam_fit <- pam(dist_go,
+                 diss = TRUE,
+                 k = i)
+  
+  sil_width[i] <- pam_fit$silinfo$avg.width
+  
+}
+
+sil_width1 <- c(NA)
+for(i in 2:kk){
+  
+  pam_fit <- pam(dados2,metric = "euclidian",
+                 diss = TRUE,
+                 k = i)
+  
+  sil_width1[i] <- pam_fit$silinfo$avg.width
+  
+}
+
+sil_width2 <- c(NA)
+for(i in 2:kk){
+  
+  pam_fit <- pam(dados2,metric = "manhattan",
+                 diss = TRUE,
+                 k = i)
+  
+  sil_width2[i] <- pam_fit$silinfo$avg.width
+  
+}
+ avg_sil <- c(NA)
+for(i in 2:kk){
+  
+  km.res <- kmeans(dados2, centers = kk, nstart = 25)
+  ss <- silhouette(km.res$cluster, dist(dados2))
+  avg_sil[i]<- mean(ss[, 3])
+}
+
+{plot(1:kk, sil_width,
+     xlab = "Number of clusters",
+     ylab = "Silhouette Width",ylim = c(0,1))
+
+points(1:kk, sil_width1,
+     col = "red")
+
+points(1:kk, sil_width2,
+     col = "blue")
+points(1:kk,  avg_sil,
+     col = "green")}
+
+#lines(1:kk, sil_width)
+print(sil_width1)
+print(avg_sil)
+```
+Logo o kmedoids pareceu ser o mais indicado, sendo que não houve diferença entre a distância euclidiana  e de Manhatan.
+
+
+### Observando clusters
+Fazendo a clusterização por goewr, a melhor quantidade de grupos é k =3. Neste cenario vemos que o 3º Cluster é quase que predominatemente ocupado por pessoas que não têm acesso a internet em casa e raramente tem telefone.
+O segundo Cluster é o que a variável ternure é nula.
+O primeiro cluster é domi
+```{r}
+pam_fit <- pam(dist_go, diss = TRUE, k = 3)
+library(dplyr)
+pam_results <- dados %>%
+  mutate(cluster = pam_fit$clustering) %>%
+  group_by(cluster) %>%
+  do(the_summary = summary(.))
+
+pam_results$the_summary
+```
+Porém unsando a distância de mahattan, o que gera agrupamentos mais semelhantes, vemos que 2 grupos são suficientes. O primeiro grupo é predominatemente feminino, sem dependentes, sem serviço de telefone,com serviço de internet dsl, sem segurança online, sem proteção do dispositivo, sem suporte tecnico, com contrato mensal, com pagamento eletronico e com churn = no e ternure baixo.Já o segundo grupo em sua maioria tem serviço de telefone e tem em média Montlycharges e Total charges mais altos.
+```{r}
+pam_fit <- pam(dados2,metric = "manhattan",
+                 diss = TRUE,
+                 k = 2)
+pam_results <- dados2 %>%
+  mutate(cluster = pam_fit$clustering) %>%
+  group_by(cluster) %>%
+  do(the_summary = summary(.))
+
+pam_results$the_summary
+#str(dados)
+```
+
+--------------------------------------------------------------
+http://www.sthda.com/english/articles/25-cluster-analysis-in-r-practical-guide/111-types-of-clustering-methods-overview-and-quick-start-r-code/
+
+
+Algoritmo de Boruta para importância de variáveis
+```{r}
+library(Boruta)
+boruta.train <- Boruta(Churn ~., data = dados2, doTrace = 5)
+print(boruta.train)
+#Plot Borutha results
+plot(boruta.train, cex.axis=.7, las=2, xlab="", main="Variable Importance")
+```
+Pelo algoritmo de Boruta fica claro que a variável *Gender* não afeta a predição de Churn. O teste qui-quadrado a seguir, reforça isso.
+
+```{r}
+#Chi Square test
+Xtable <-table(dados2$Churn, dados2$gender)
+chisq.test(Xtable)
+```
+
+Removendo a variável Gender
+```{r}
+dados3 = dados2
+dados3$gender = NULL
+```
+
+Teste qui-quadrado p/ variável "PhoneService"
+
+```{r}
+#Chi Square test
+Xtable <-table(dados3$Churn, dados3$PhoneService)
+chisq.test(Xtable)
+```
+
+Iremos criar, então, uma nova variável intervalar com os seguintes grupos:
+
+- 0–3[ meses  
+- [3–12[ meses  
+- [12–60[ meses
+- [60-Inf[ meses  
+
+Criando a função que define os grupos intervalares
+
+```{r}
+# create the goupping function with the define intervals
+CreateGrp <- function(tn){
+    if (tn >= 0 & tn <= 3){
+        return('0-3 meses')
+    }else if(tn > 3 & tn <= 12){
+        return('3-12 meses ')
+    }else if(tn > 12 & tn <= 60){
+        return('de 1 a 5 anos')
+    }else if (tn > 60){
+        return('mais que 5 anos')
+    }
+}
+# apply the Group function to the tenure column
+dados3$GrpTenure <- sapply(dados3$tenure,CreateGrp)
+# set as factor the new column
+dados3$GrpTenure <- as.factor(dados3$GrpTenure)
+head(dados3$GrpTenure)
+```
+
+
+
+
+Removendo as variáveis *PhoneService*, *MultipleLines* *DeviceProtection*, *OnlineBackup*, *OnlineSecurity*, *TechSupport*, *StreamingTV*, *StreamingMovies* e *TotalCharges*.
+
+
+```{r}
+dados3 = dados2 %>% select(-PhoneService, -MultipleLines, -DeviceProtection, -OnlineBackup, -OnlineSecurity, -TechSupport, -StreamingTV, -StreamingMovies, -TotalCharges)
+```
+
+Removendo a variável tenure, pois ficaremos com o intervalo de tenure
+
+```{r}
+dados3 = dados3 %>% select(-tenure)
+dim(dados3)
+glimpse(dados3)
+```
+
+## ANALISE DE CLUSTER APENAS COM AS VARIAVEIS IMPORTANTES
+### Análise de Cluster
+Obtendo a matriz de distâncias e gerando a sillhouette
+```{r}
+library("cluster")
+dist_go <- daisy(dados3[,-9],metric="gower")
+sil_width <- c(NA)
+kk=4
+for(i in 2:kk){
+  
+  pam_fit <- pam(dist_go,
+                 diss = TRUE,
+                 k = i)
+  
+  sil_width[i] <- pam_fit$silinfo$avg.width
+  
+}
+
+sil_width1 <- c(NA)
+for(i in 2:kk){
+  
+  pam_fit <- pam(dados3[,-9],metric = "euclidean",
+                 diss = FALSE,
+                 k = i)
+  
+  sil_width1[i] <- pam_fit$silinfo$avg.width
+  
+}
+
+sil_width2 <- c(NA)
+for(i in 2:kk){
+  
+  pam_fit <- pam(dados3[,-9],metric = "manhattan",
+                 diss = FALSE,
+                 k = i)
+  
+  sil_width2[i] <- pam_fit$silinfo$avg.width
+  
+}
+ avg_sil <- c(NA)
+for(i in 2:kk){
+  
+  km.res <- kmeans(dados3[,-9], centers = kk, nstart = 25)
+  ss <- silhouette(km.res$cluster, dist(dados3[,-9]))
+  avg_sil[i]<- mean(ss[, 3])
+}
+
+{plot(1:kk, sil_width,
+     xlab = "Number of clusters",
+     ylab = "Silhouette Width",ylim = c(0,1))
+
+points(1:kk, sil_width1,
+     col = "red")
+
+points(1:kk, sil_width2,
+     col = "blue")
+points(1:kk,  avg_sil,
+     col = "green")}
+
+#lines(1:kk, sil_width)
+print(sil_width1)
+print(avg_sil)
+```
+Logo o kmedoids pareceu ser o mais indicado, sendo que não houve diferença entre a distância euclidiana  e de Manhatan.
+
+
+### Observando clusters
+Fazendo a clusterização por goewr, a melhor quantidade de grupos é k =3. Neste cenario vemos que o 3º Cluster é quase que predominatemente ocupado por pessoas que não têm acesso a internet em casa e raramente tem telefone.
+O segundo Cluster é o que a variável ternure é nula.
+O primeiro cluster é domi
+```{r}
+pam_fit <- pam(dist_go, diss = TRUE, k = 3)
+library(dplyr)
+pam_results <- dados3[-9] %>%
+  mutate(cluster = pam_fit$clustering) %>%
+  group_by(cluster) %>%
+  do(the_summary = summary(.))
+
+pam_results$the_summary
+```
+Porém unsando a distância de mahattan, o que gera agrupamentos mais semelhantes, vemos que 2 grupos são suficientes. O primeiro grupo é predominatemente feminino, sem dependentes, sem serviço de telefone,com serviço de internet dsl, sem segurança online, sem proteção do dispositivo, sem suporte tecnico, com contrato mensal, com pagamento eletronico e com churn = no e ternure baixo.Já o segundo grupo em sua maioria tem serviço de telefone e tem em média Montlycharges e Total charges mais altos.
+```{r}
+pam_fit <- pam(dados3[-9],metric = "manhattan",
+                 diss = FALSE,
+                 k = 2)
+pam_results <- dados3[-9] %>%
+  mutate(cluster = pam_fit$clustering) %>%
+  group_by(cluster) %>%
+  do(the_summary = summary(.))
+
+pam_results$the_summary
+#str(dados3)
+```

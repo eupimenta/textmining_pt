@@ -1,0 +1,14 @@
+# Introdução
+
+  Frequentemente utilizamos serviços de classificação, seja com o intuito de recomendar/sugerir algo a um usuário final, como *Netflix, Mercado Livre, OLX* dentre outros, em testes de diagnóstico de doenças, por exmeplo, se um paciente pode-se utilizar ummodelo de classificação como Random Forest (RF) ou Support Vector Machine (SVM) a fim de classificar pacientes como *doente*, *não doente* ou *suspeito*. Além de outros vários exemplos. O conjunto de dados explanados a seguir foram extraídos da plataforma Kaggle e são referentes ao catálogo de filmes da plataforma Internet Movie DataBases - IMDB, o intuito aqui é criar um sistema de classificação de estrelas (rating/score) do catálogo de avaliação de filmes do IMDB, segmentando os filmes em duas categorias de filmes: alto e baixo.
+
+  Esse projeto irá explorar o conjunto de dados a fim de gerar insights, e aplicar dois algoritmos de classificação e, posteriormente, compará-los a fim de identificar o melhor modelo que se ajusta aos dados. São eles os modelos  de Random Forest - *RF* (baseado na clusterização de Breiman) e Support Vector Machine - *SVM* para classificação de filmes nas seguintes faixas/categorias de estrelas (*Rating*):  
+
+- Categoria B: 'Baixo índice de aprovação (*low score*)': [0, 6.5) ★ 
+- Categoria A: 'Alto índice de aprovação (*high score*)': [6.5, 10) ★
+
+  Para este, se faz necessário um largo conjunto de dados que, por sua vez,  deve ser bem estruturado e consistente. Portanto, é fundamental manipular, limpar e remover informações faltantes dos dados para a implementação do modelo de Machine Learning do Random Forest que será treinado com orientação a esses dados.
+
+  Além disso, esse trabalho irá levantar quais os fatores mais importantes para que um filme tenha uma alta classificação (categoria de faixas de estrelas), via modelagem de Random Forest, de tal forma que essas mesmas variáveis/fatores destacados como importantes no algoritmo do *RF* possam ser aproveitados posteriormente em análises futuras de classificação como no caso do classificador via *SVM* que será, também, aplicado aqui. Resultados e script foram gerados utilizando recursos e linguagens em $R$, $\LaTeX$ e $Markdown$.
+
+-------------------------------------

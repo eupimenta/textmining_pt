@@ -1,0 +1,1029 @@
+---
+title: "Modelo de classificação via Random Forest"
+subtitle: "Uma aplicação com dados da plataforma IMDB - Internet Movie DataBases"
+author: 
+- name: Ewerson C. Pimenta 
+  email: pimentaeu@yahoo.com
+- name: Marcos Antônio E. de Oliveira
+  email: marcoseuzbio@gmail.com
+date: "`r format(Sys.time(), 'Rio de Janeiro, %d de %B de %Y')`"
+output:
+  html_document:
+    number_sections: true
+    toc: true
+    fig_width: 10
+    code_folding: hide
+    fig_height: 4.5
+    theme: cosmo
+    highlight: tango
+csl: apa.csl
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+editor_options: 
+  chunk_output_type: console
+---
+  
+  
+ <!-- Alguns temas e highlights interessantes  -->
+  <!-- highlight: tango pygments kate monochrome zenburn haddock textmate -->
+  <!-- theme: cerulean, journal, flatly, readable, spacelab, united, cosmo, lumen, paper, sandston, simplex, yeti -->
+  
+  <!----------  INÍCIO CONFIG  ---------->
+  
+```{r TEMPO}
+ptm = proc.time()
+```
+
+  
+```{r INSTALPACK, echo = FALSE, eval = TRUE, message=FALSE, include = FALSE}
+list.of.packages <- c("arules","dplyr","HardyWeinberg","cdparcoord", "knitr", "knitLatex", "kableExtra", "tidyverse", "tidyverse", "cdparcoord", "cowplot", "ggpubr", "gridExtra", "stringi", "cluster", "factoextra", "cluster", "randomForest", "rpart.plot", "DT", "keras", "caret", "highcharter", "wordcloud", "e1071", "icon", "wordcloud2")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+remove(list.of.packages, new.packages)
+```
+
+```{r READPACK, echo = FALSE, eval = TRUE, message=FALSE, include = FALSE}
+#library(gridExtra)          # Organiza e posiciona múltiplas tables e/ou plots
+library(tidyverse)          # Manipulação de banco de dados e análise exploratória
+library(highcharter)        # visualização Gráfica
+library(DT)                 # Construção de Tabelas 
+library(knitr)              # Opções Rmarkdown (inclusão de tabelas, imagens, etc.)
+#library(kableExtra)         # Construção de Tabelas 
+library(rpart.plot)         # Recursive Partitioning and Regression Trees
+library(randomForest)       # Modelo Random Forest
+#library(corrplot)           # Matriz de correlação - Visualização gráfica
+library(wordcloud2)         # Numvem de palavras (Word Cloud)
+library(caret)              # Matriz de confusão (Confusion Matrix) 
+library(rpart)
+#install.packages("devtools")
+#devtools::install_github("ropenscilabs/icon")
+library(icon)
+```
+
+
+```{r READMETADATA, echo = FALSE, eval = TRUE, message=FALSE, include = FALSE}
+# Lendo o arquivo de dados
+#RECOMMEND.METADATA = readxl::read_xlsx(path = "E:/2018-2/IC/PROJETOS/PROJ2/RECOMMENDER-IMDB/DB/IMDB.xlsx", sheet = 1, )
+RECOMMEND.METADATA = read.csv2(file = "E:/2018-2/IC/PROJETOS/PROJ2/RECOMMENDER-IMDB/DB/movie_metadata.csv", 
+                               sep=',', header = TRUE, encoding = 'UTF-8')
+db = RECOMMEND.METADATA
+#View(db[1:50,])
+#class(db)
+#getwd()
+```
+
+  <!----------  FIM CONFIG  ---------->
+  
+# Introdução
+
+  Frequentemente utilizamos serviços de classificação, seja com o intuito de recomendar/sugerir algo a um usuário final, como *Netflix, Mercado Livre, OLX* dentre outros, ou seja para determinar  em testes de diagnóstico de doenças se um paciente deve ser classificado como *doente*, *não doente* ou *suspeito*. Além de outros exemplos. O conjunto de dados explanados a seguir foram extraídos da plataforma Kaggle e são referentes ao catálogo de filmes da plataforma IMDB, o intuito aqui é criar um sistema de classificação de estrelas do catálogo de avaliação de filmes do IMDB.
+
+  Esse projeto irá explorar o conjunto de dados a fim de gerar insights, e aplicar o algoritmo de Random Forest - *RF* (baseado na clusterização de Breiman) para classificação de filmes nas seguintes faixas/categorias de estrelas (*Rating*):  
+
+- Categoria 'Baixo índice de aprovação (low score)': [0, 6.5) ★ 
+- Categoria 'Alto índice de aprovação (high score)': [6.5, 10) ★
+
+  Para este, se faz necessário um largo conjunto de dados que, por sua vez,  deve ser bem estruturado e consistente. Portanto, é fundamental manipular, limpar e remover informações faltantes dos dados para a implementação do modelo de Machine Learning do Random Forest que será treinado com orientação a esses dados.
+
+  Além disso, esse trabalho irá levantar quais os fatores mais importantes para que um filme tenha uma alta classificação (categoria de faixas de estrelas), via modelagem de Random Forest, de tal forma que essas mesmas variáveis/fatores destacados como importantes no algoritmo do *RF* possam ser aproveitados posteriormente em análises futuras de classificação. Resultados e script foram gerados utilizando recursos e linguagens em $R$, $\LaTeX$ e $Markdown$.
+
+  
+```{r, out.width = "400px",echo = FALSE, eval = TRUE, message=FALSE, include = TRUE, fig.align="center"}
+#knitr::include_graphics("E:/2018-2/IC/PROJETOS/PROJ2/RECOMMENDER-IMDB/IMG/popcorn.jpg")
+knitr::include_graphics("E:/2018-2/IC/PROJETOS/PROJ2/RECOMMENDER-IMDB/IMG/popcorn.jpg")
+```
+
+-------------------------------------
+
+__Pacotes e Leitura__
+
+Alguns pacotes R utilizados nessa rotina
+```yaml
+library(tidyverse)          # Manipulação de banco de dados e análise exploratória
+library(highcharter)        # visualização Gráfica
+library(DT)                 # Construção de Tabelas 
+library(knitr)              # Opções Rmarkdown (inclusão de tabelas, imagens, etc.)
+library(kableExtra)         # Construção de Tabelas 
+library(rpart.plot)         # Recursive Partitioning and Regression Trees
+library(randomForest)       # Modelo Random Forest
+library(corrplot)           # Matriz de correlação - Visualização gráfica
+library(wordcloud2)         # Numvem de palavras (Word Cloud)
+library(caret)              # Matriz de confusão (Confusion Matrix) 
+library(rpart)
+#devtools::install_github("ropenscilabs/icon")
+library(icon)
+```
+
+```yaml
+RECOMEND.METADATA = readxl::read_xlsx(path = ".../DB/IMDB.xlsx", sheet = 1)
+db = RECOMEND.METADATA
+```
+
+<!-- https://fontawesome.com/icons?d=gallery  -->
+`r fa_coffee(colour = "#1FA67A", size = 2)` + `r fa_r_project(colour = "#384CB7", size = 2)` + `r fa_chart_line(colour = "#f7a12a", size = 2)` = `r fa_heart(colour = "red", size = 2)`
+
+# Banco de Dados{.tabset .tabset-fade .tabset-pills}
+
+  O conjunto de dados utilizado foi o de título *IMDB 5000* extraído da plataforma [kaggle](https://www.kaggle.com/). As informações contidas no banco foram catalogadas de filmes publicados ao longo de 100 anos em 66 países (entre 1916 e 2016) da plataforma IMDB - Internet Movie DataBases, o Arquivo original contém 5044 filmes (observações) e 28 variáveis descritas a seguir.
+  
+
+```{r, echo = FALSE, eval = TRUE, message=FALSE, include = TRUE}
+INFO = c("movie_title","Title of the Movie","duration","Duration in minutes","director_name","Name of the Director of the Movie","director_facebook_likes","Number of likes of the Director on his Facebook Page",
+        "actor_1_name","Primary actor starring in the movie","actor_1_facebook_likes","Number of likes of the Actor_1 on his/her Facebook Page","actor_2_name","Other actor starring in the movie","actor_2_facebook_likes","Number of likes of the Actor_2 on his/her Facebook Page",
+        "actor_3_name","Other actor starring in the movie","actor_3_facebook_likes","Number of likes of the Actor_3 on his/her Facebook Page","num_user_for_reviews","Number of users who gave a review","num_critic_for_reviews","Number of critical reviews on imdb",
+        "num_voted_users","Number of people who voted for the movie","cast_total_facebook_likes","Total number of facebook likes of the entire cast of the movie","movie_facebook_likes","Number of Facebook likes in the movie page","plot_keywords","Keywords describing the movie plot",
+        "facenumber_in_poster","Number of the actor who featured in the movie poster","color","Film colorization. ‘Black and White’ or ‘Color’","genres","Film categorization like ‘Animation’, ‘Comedy’, ‘Romance’, ‘Horror’, ‘Sci-Fi’, ‘Action’, ‘Family’","title_year","The year in which the movie is released (1916:2016)",
+        "language","English, Arabic, Chinese, French, German, Danish, Italian, Japanese etc","country","Country where the movie is produced","content_rating","Content rating of the movie","aspect_ratio","Aspect ratio the movie was made in","movie_imdb_link","IMDB link of the movie",
+        "gross","Gross earnings of the movie in Dollars","budget","Budget of the movie in Dollars","imdb_score", "IMDB Score of the movie on IMDB")
+# Cria matriz de INFO
+INFO = as.data.frame(matrix(INFO,byrow = T, ncol = 2))
+colnames(INFO) = c("Variables", "Description")
+datatable(INFO,  
+          options = list(searchin = TRUE, pageLength = 5))
+```
+
+
+*Os dados em questão são públicos e disponíveis para download clicando  [AQUI](https://www.kaggle.com/carolzhangdc/analyze-imdb-score-with-data-mining-algorithms/data).* 
+
+
+# Análise Exploratória dos dados{.tabset .tabset-fade .tabset-pills}
+
+```{r, echo = FALSE, eval = TRUE, message=FALSE, include = TRUE}
+set.seed(123465)
+amostra1 = sample(x = 1:dim(db)[1], size = 35, replace = FALSE)
+t1 = db[amostra1,]
+datatable(t1,  rownames = amostra1,
+          options = list(searchin = TRUE, scrollX = TRUE, pageLength = 5)); remove(t1)
+```
+
+          
+## Estrutura dos dados
+```{r, echo = FALSE, eval = TRUE, message=FALSE, include = TRUE}
+cat("O banco de dados possui", dim(db)[1], "observações e", dim(db)[2], "variáveis")
+```
+
+
+Excluindo algumas variáveis que não serão utilizadas.
+
+- (1) As variáveis  *color*, *director_name*, *language*, *country*, *content_rating*, em especial, foram removidas uma vez que estas não se mostraram importantes no algoritmo de importância do Random Forest de Breiman.
+
+- (2) Já as variáveis *director_facebook_likes*, *actor_3_facebook_likes*, *actor_2_name*, *actor_1_facebook_likes*, *actor_1_name*, *actor_3_name,-facenumber_in_poster*, *actor_2_facebook_likes*, *movie_imdb_link* foram extraídas de forma determinística por escolha dos autores deste.
+
+O motivo de remover as variáveis em (1) é devido à tentativa de reduzir o número de missing na base de dados. no passo 3.1 de Tratamento de NA's.
+```{r}
+#db=RECOMMEND.METADATA
+db = db %>% select(- director_facebook_likes, -actor_3_facebook_likes, -actor_2_name, -actor_1_facebook_likes, -actor_1_name, -actor_3_name,-facenumber_in_poster, -actor_2_facebook_likes, -color, -director_name, -language, -country, -content_rating, -movie_imdb_link)
+```
+
+```{r, echo = FALSE, eval = TRUE, message=FALSE, include = TRUE}
+cat("O banco de dados agora possui", dim(db)[2], "variáveis. Ou seja, foram removidas ",dim(RECOMMEND.METADATA)[2]-dim(db)[2], "variáveis no passo anterior.")
+```
+
+Estrutura dos dados
+```{r}
+glimpse(db) #str(db)
+```
+
+
+## Transformação de variáveis 
+
+Transformando as variáveis `imdb_score` e `aspect_ratio` em numéricas
+```{r}
+db$imdb_score = as.numeric(as.character(db$imdb_score))
+db$aspect_ratio = as.numeric(as.character(db$aspect_ratio))
+```
+
+```{r}
+hc1 = hchart(db$imdb_score, color = "#e8bb0b", name = "imdb_score") %>% 
+        hc_title(text = "Histograma dos votos na plataforma IMDB") %>%
+        hc_exporting(enabled = TRUE, filename = "Fig1-Pimenta"); hc1
+```
+
+```{r}
+hc2 = hchart(db$num_voted_users, color = "#786eea", name = "imdb_num_votos") %>% 
+        hc_title(text = "Histograma dos número de votos na plataforma IMDB") %>%
+        hc_exporting(enabled = TRUE, filename = "Fig2-Pimenta"); hc2
+```
+
+Criando uma função para cálculo da moda
+```{r}
+Moda <- function(x) {
+     ux <- unique(x)
+     ux[which.max(tabulate(match(x, ux)))]
+}
+```
+
+
+```{r, echo = FALSE, eval = TRUE, message=FALSE, include = TRUE}
+cat("Média, moda e mediana da variável imdb_score são, respectivamente,",round(mean(db$imdb_score, na.rm = TRUE),2), Moda(db$imdb_score),median(db$imdb_score, na.rm = TRUE))
+```
+
+Extraindo valores da variável gênero e transformando em dummies
+```{r, message=FALSE}
+gg <- as.character(db$genres); gg <- gsub("-", "_", as.character(gg))
+
+#t <- unlist(strsplit(gg[1],split = "\\|"))
+tem1 <- data.frame() 
+for(i in 1:length(gg)){
+        tem <- tem1
+        t <- unlist(strsplit(gg[i],split = "\\|"))
+        temp <- data.frame(t)
+        tem1 <- rbind(tem,temp)
+}
+
+Gen <- unique(tem1); Gen <- gsub("-", "_", as.character(Gen$t))
+cat("Existem", length(Gen), "valores de gêneros únicos de filme no banco de dados.")
+Genname <- Gen
+
+fe <- matrix(data = 0, nrow = length(gg), ncol = length(Genname))
+fe <- data.frame(fe); colnames(fe) <- Genname
+
+i=j=0
+for(i in 1:length(gg)){
+        for(j in 1:length(Genname)){
+                g <- grepl(Genname[j], gg[i])
+                if(g == TRUE){
+                        fe[i, j] <- 1        
+                }
+        }
+}
+
+NumGen = as_tibble(rbind(apply(fe,2,sum)))
+NumGen = gather(NumGen, key = "variables", value = "num_gender")
+NumGen = NumGen[order(NumGen$num_gender, decreasing = TRUE), ]
+
+
+hc3 <- highchart() %>%
+  hc_add_series(data = NumGen$num_gender, 
+                type = "bar",
+                name = "# de filmes",
+                showInLegend = FALSE,
+                tooltip = list(valueDecimals = 0, valuePrefix = "", valueSuffix = ""), color="blue") %>%
+  hc_yAxis(title = list(text = "Quantitativo de filmes"), 
+           allowDecimals = TRUE, max = (max(NumGen$num_gender)+103),
+           labels = list(format = "{value}")) %>%
+  hc_xAxis(title = list(text = "Gênero de filme"),
+           categories = NumGen$variables,
+           tickmarkPlacement = "on",
+           opposite = FALSE) %>%
+  hc_title(text = "Quantitativo de filmes por gênero",
+           style = list(fontWeight = "bold")) %>% 
+  hc_subtitle(text = paste("")) %>%
+      hc_tooltip(valueDecimals = 2,
+                 pointFormat = "{point.y} filmes")%>%
+                 #pointFormat = "Variável: {point.x} <br> Missing: {point.y}") 
+      hc_credits(enabled = TRUE, 
+                 text = "Fonte: IMDB/KAGGLE. Elaboração: Ewerson Pimenta.",
+                 style = list(fontSize = "10px")) %>%
+  hc_exporting(enabled = TRUE, filename = "F3-filmes-genero-Pimenta")
+#hc <- hc %>% 
+#  hc_add_theme(hc_theme_darkunica())
+hc3; remove(gg,t,tem, temp, tem1,Gen, g, i, j)
+```
+
+
+Algumas variáveis de gêneros possuem pouquíssimos filmes serão removidas do banco. São elas *Film_Noir*, *Short*, *News*, *Reality_TV* e *Game_Show*.
+```{r}
+fe$Film_Noir <- NULL
+fe$Short <- NULL
+fe$News <- NULL
+fe$Reality_TV <- NULL
+fe$Game_Show <- NULL
+```
+
+Unificando a base de dados com as novas variáveis de gêneros únicos descobertos.
+```{r}
+db1 = as_tibble(cbind(as.data.frame(db),fe))
+cat("Foram inseridas ", dim(fe)[2],"novas variáveis provenientes dos gêneros únicos descobertos no passo anterior.")
+```
+
+
+Semelhante à variável de gênero, foi feito o split por palavra chave da variável keyword, esse, por sua vez, continha 6780 palavras únicas. E então, geramos uma nuvem de palavras chave, com o auxílio do pacote `wordcloud2` com o seguinte comando, após obter o data frame do nome das palavras chaves e frequência.
+
+```yaml
+library(wordcloud2)
+wordcloud2(NumKeyWord)
+```
+
+```{r, out.width = "600px",echo = FALSE, eval = TRUE, message=FALSE, include = TRUE, fig.align="center"}
+knitr::include_graphics("E:/2018-2/IC/PROJETOS/PROJ2/RECOMMENDER-IMDB/IMG/PLOTS/wordcloud.png")
+```
+
+## Filtrando filmes a partir de 1980
+__Excluindo filmes lançados antes de 1980__
+```{r}
+hc00 = hchart(db$title_year, color = "#53a074", name = "imdb1_score") %>% 
+        hc_title(text = "Histograma do ano de publicação dos filmes") %>%
+        hc_exporting(enabled = TRUE, filename = "Fig1-Pimenta"); hc00
+```
+
+Percebemos pelo gráfico anterior que existem poucos filmes publicados antes de 1980 e estes podem não ser representativos. Decidimos, então, por trabalhar apenas com os filmes que foram publicados a aprtir de 1980
+```{r}
+db <- db[db$title_year >= 1980,]
+hc01 = hchart(db$title_year, color = "#79d8a2", name = "imdb1_score") %>% 
+        hc_title(text = "Histograma do ano de publicação dos filmes") %>%
+        hc_exporting(enabled = TRUE, filename = "Fig1-Pimenta"); hc01
+```
+
+
+## Tratamento de NA, zeros e duplicatas
+Porcentagem de NA por variável
+```{r}
+db_miss <- db %>% summarise_all(funs(sum(is.na(.))/n()))
+db_miss <- gather(db_miss, key = "variables", value = "percent_missing")
+db_miss$percent_missing = 100*db_miss$percent_missing
+db_miss = db_miss[order(db_miss$percent_missing, decreasing = TRUE), ]
+#db_miss
+
+hc4 <- highchart() %>%
+  hc_add_series(data = db_miss$percent_missing, 
+                type = "bar",
+                name = "Porcentagem de missing",
+                showInLegend = FALSE,
+                tooltip = list(valueDecimals = 2, valuePrefix = "", valueSuffix = " %")) %>%
+  hc_yAxis(title = list(text = "Porcentagem de missing"), 
+           allowDecimals = TRUE, max = 20,
+           labels = list(format = "{value}%")) %>%
+  hc_xAxis(categories = db_miss$variables,
+           tickmarkPlacement = "on",
+           opposite = FALSE) %>%
+  hc_title(text = "Porcentagem de missinig por variável",
+           style = list(fontWeight = "bold")) %>% 
+  hc_subtitle(text = paste("")) %>%
+      hc_tooltip(valueDecimals = 2,
+                 pointFormat = "Missing: {point.y}")%>%
+                 #pointFormat = "Variável: {point.x} <br> Missing: {point.y}") 
+      hc_credits(enabled = TRUE, 
+                 text = "Fonte: IMDB/KAGGLE. Elaboração: Ewerson Pimenta.",
+                 style = list(fontSize = "10px")) %>%
+  hc_exporting(enabled = TRUE, filename = "Fig0-Pimenta")
+#hc <- hc %>% 
+#  hc_add_theme(hc_theme_darkunica())
+hc4
+```
+
+
+
+Removendo todas as observações que contêm NA.
+```{r}
+db1 <- db1 %>% drop_na(gross, budget, aspect_ratio 
+,title_year 
+,num_critic_for_reviews, num_user_for_reviews)
+#glimpse(db1)
+
+db1 <- db1 %>% na.omit()
+db1 <- db1 %>% drop_na()
+```
+
+
+__Removendo dados duplicados__
+```{r}
+cat("Existem", sum(duplicated(db1)), "filmes duplicados na base de dados.")
+db1 <- db1[!duplicated(db1), ]
+```
+
+
+```{r REMOVE_NA, echo = FALSE, eval = TRUE, message=FALSE, include = TRUE}
+cat("O novo banco de dados, sem observações faltantes, possui", dim(db1)[1], "observações. Ou seja, no processo de remoção de valores faltantes foram perdidas", dim(db)[1]-dim(db1)[1], "observações. Finalmente, removemos todas as observações duplicadas e faltantes do banco.")
+```
+
+
+__Porcentagem de ZEROS por variável__
+```{r}
+zeros <- (colSums(db1==0)/nrow(db1)*100); var <- names(zeros)
+db_zero <- data.frame(var,zeros); rownames(db_zero) <- NULL
+db_zero <- db_zero[order(db_zero$zeros, decreasing = TRUE), ]
+
+hc4_1 <- highchart() %>%
+  hc_add_series(data = db_zero$zeros, 
+                type = "bar",
+                name = "Porcentagem de zeros",
+                showInLegend = FALSE,
+                tooltip = list(valueDecimals = 2, valuePrefix = "", valueSuffix = " %"), color="pink") %>%
+  hc_yAxis(title = list(text = "Porcentagem de zero"), 
+           allowDecimals = TRUE, max = 100,
+           labels = list(format = "{value}%")) %>%
+  hc_xAxis(categories = db_zero$var,
+           tickmarkPlacement = "on",
+           opposite = FALSE) %>%
+  hc_title(text = "Porcentagem de zeros por variável",
+           style = list(fontWeight = "bold")) %>% 
+  hc_subtitle(text = paste("")) %>%
+      hc_tooltip(valueDecimals = 2,
+                 pointFormat = "Zeros: {point.y}")%>%
+                 #pointFormat = "Variável: {point.x} <br> Missing: {point.y}") 
+      hc_credits(enabled = TRUE, 
+                 text = "Fonte: IMDB/KAGGLE. Elaboração: Ewerson Pimenta.",
+                 style = list(fontSize = "10px")) %>%
+  hc_exporting(enabled = TRUE, filename = "Fig00-Pimenta")
+#hc <- hc %>% 
+#  hc_add_theme(hc_theme_darkunica())
+hc4_1
+```
+
+Aqui podemos perceber que os zeros estão concentrados nas variáveis de gênero que são binárias e não faz sentido analizar os zeros nessas variáveis.  
+
+```{r}
+paste0("Entretanto, pode-se perceber uma proporção de zeros na variável movie_facebook_likes igual a ",round(db_zero[22,2],2), "% e, também na variável cast_total_facebook_likes de ",round(db_zero[23,2],2),"%. Decidimos por remover a variável movie_facebook_likes.")
+```
+
+```{r}
+db1$movie_facebook_likes <- NULL
+```
+
+
+## Weighted Rating (WR) - IMDB_score
+
+
+Um passo importante é penalizar a variável de escore `imdb_score` pelo [número de votos recebidos](https://help.imdb.com/article/imdb/track-movies-tv/faq-for-imdb-ratings/G67Y87TFYYP6TWAV#). Ver mais no estimador de [Shrinkage](https://stats.stackexchange.com/questions/6418/rating-system-taking-account-of-number-of-votes)
+
+
+$WR = \frac{v}{v+m} \times R + \frac{m}{v+m} \times C$
+
+Onde,
+
+```{r}
+R = as.numeric(db1$imdb_score)
+v = as.numeric(db1$num_voted_users)
+m = summary(db1$num_voted_users)[2] # 1st Qu.
+C = mean(db1$imdb_score)
+db1$WR = (v/(v+m))*R + (m/(v+m))*C
+```
+
+* R = Escore médio dos votos para o título do filme dado pelos usuários do IMDB = (imdb_score)
+* v = Número de usuários que votaram = (num_voted_users)
+* m = Mínimo de votos requerido (atualmente 7.000)
+* C = O escore médio de todos os 3766 filmes (atualmente 6,5)
+
+Medidas pontuais e de dispersão de *imdb_score* e *WR*
+```{r}
+summary(db1$imdb_score)
+summary(db1$WR)
+cat("Além disso, conseguimos reduzir o desvio padrão que orignalmente era de ",round(sd(db1$imdb_score),2),",para a variável imdb_score, e agora passou a ser ",round(sd(db1$WR),2), "para a variável WR.")
+```
+
+Selecionando uma amostra aleatória (a.a.) de tamanho $n=800$ e representando em um gráfico de dispersão com valores reais vs ajustados.
+```{r}
+set.seed(123654)
+amostra0 = sample(x = 1:dim(db1)[1], size = 800, replace = FALSE)
+dbX = db1[amostra0,] %>% 
+  select(movie_title,num_voted_users,imdb_score, WR)
+  
+dss <- map(c("cross"), function(s){
+  
+  x <- as.numeric(dbX$imdb_score)
+  y <- as.numeric(dbX$WR)
+  
+  list(name = s,
+       data = list_parse(data_frame(x, y)),
+       marker = list(symbol = s, enabled = TRUE), lineColor = "#56667a")
+  
+})
+#dss[[1]]$data[amostra1]
+
+hc5 = highchart() %>% 
+  hc_chart(type = "scatter", color = "#56667a") %>% 
+  hc_title(text = "Score IMDB vs WR (calculado pelo estimador de Shrinkage)") %>%
+  hc_subtitle(text = "800 filmes selecionados via amostra aleatória simples") %>%
+  hc_xAxis(title = list(text = "x: imdb_score"), 
+           allowDecimals = TRUE, labels = list(format = "{value}★")) %>%
+  hc_yAxis(title = list(text = "y: WR (calibrado)"),
+           allowDecimals = TRUE, labels = list(format = "{value}★")) %>%
+  hc_exporting(enabled = TRUE, filename = "F3-Pimenta") %>%
+  hc_add_series_list(dss); hc5; remove(dbX, dss)
+```
+
+Análise do cálculo de IMDB
+
+- Para filmes com # de votos recebidos MENOR que 18mil (m: votos mínimos requeridos):  
+    + imdb_score > 6,5: DECRESCIMENTO  
+    + imdb_score < 6,5: CRESCIMENTO  
+
+
+- Para filmes com # de votos recebidos MAIOR que 18mil (m: votos mínimos requeridos):  
+    + imdb_score > 6,5: DECRESCIMENTO  
+    + imdb_score < 6,5: CRESCIMENTO  
+
+
+Ou seja, para os filmes catalogados com m muito inferior a 18mil o novo escore calibrado teve maior diferentça que aqueles superior a 18 mil. Além disso, quando scores são maiores que 6,5 o WR tende a cair, caso contrário o valor pode aumentar. Quanto maior o número de votos recebidos, menor a diferença do valor de IMDB_score e WR.
+
+```{r}
+set.seed(123654)
+amostra2 = sample(x = 1:dim(db1)[1], size = 35, replace = FALSE)
+db1[amostra2,] %>% 
+  select(movie_title,num_voted_users,imdb_score, WR, budget) %>% 
+  datatable(rownames = amostra2,options = list(searchin = TRUE, scrollX = TRUE, pageLength = 5))
+```
+
+## Visualizações Finais
+
+Finalmente, segue uma a.a.da base de dados após limpeza e análise exploratória.
+```{r}
+set.seed(123851)
+amostra3 = sample(x = 1:dim(db1)[1], size = 35, replace = FALSE)
+db1[amostra3,] %>%
+datatable(rownames = amostra3,options = list(searchin = TRUE, scrollX = TRUE, pageLength = 5))
+```
+
+Para os dados quantitativos a seguinte [Matriz de correlação](https://cran.r-project.org/web/packages/corrplot/vignettes/corrplot-intro.html). Foi gerada utilizando o pacote `corrplot` 
+
+```yaml
+#install.packages("corrplot")
+library(corrplot)  
+res1 <- cor.mtest(db_cor, conf.level = .95)
+res2 <- cor.mtest(db_cor, conf.level = .99)
+
+corrplot::corrplot(cor(db_cor), method = "color", col = col(200),
+         type = "upper", order = "hclust", number.cex = .7,
+         addCoef.col = "black", # Add coefficient of correlation
+         tl.col = "black", tl.srt = 90, # Text label color and rotation
+         # Combine with significance
+         p.mat = res1$p, sig.level = 0.01, insig = "blank", 
+         # hide correlation coefficient on the principal diagonal
+         diag = FALSE)
+```
+
+```{r, out.width = "600px",echo = FALSE, eval = TRUE, message=FALSE, include = TRUE, fig.align="center"}
+#knitr::include_graphics("E:/2018-2/IC/PROJETOS/PROJ2/RECOMMENDER-IMDB/IMG/popcorn.jpg")
+knitr::include_graphics("E:/2018-2/IC/PROJETOS/PROJ2/RECOMMENDER-IMDB/IMG/PLOTS/3.Fig.Correlation.png")
+```
+
+ 
+
+
+------------------------------------------------------------------------------------------------
+
+<!--
+*https://www.kaggle.com/carolzhangdc/analyze-imdb-score-with-data-mining-algorithms*
+*https://www.kaggle.com/philippsp/book-recommender-collaborative-filtering-shiny  *
+*https://www.kaggle.com/pimentaeu/kernels/scripts/new?forkParentScriptVersionId=1563912*  
+*https://philippsp.shinyapps.io/BookRecommendation/*
+*https://www.kaggle.com/gaborfodor/kaggle-trends*
+-->
+
+-------------------------------------------------------------------------------------------
+
+# Modelagem{.tabset .tabset-fade .tabset-pills}
+
+## Random Forest - Metodologia
+
+__Descrição__
+1. Random Forest foi desenvolvido para agregar árvores de decisão (modelo de classificação);  
+2. Pode ser usado para modelo de classificação (p/ var. resposta categórica) ou regressão (no caso de haver variável resposta contínua);  
+3. Evita *overfitting*;  
+4. Permite trabalhar com um largo número de características de um conjunto de dados;  
+5. Auxilia na seleção de variáveis baseada em um algoritmo que calcula a importância por variável (assim, tendo conhecimento de quais variáveis são mais importantes, podemos usar essa informação para outros modelos de classificação);  
+6. User-friendly: apenas 2 parâmetros livres:
+
+- Trees - ntrees, default 500 (Nº de árvores);
+- Variáveis selecionadas via amostragem aleatória candidatas à cada "split"  (quebra da árvore) - mtry, default
+    $\sqrt{p}$ p/ classificação e $\frac{p}{3}$
+    p/ regressão (p: nº de features/variáveis);
+
+
+__Passo-a-Passo__
+
+É realizado em 3 passos:
+
+1. Desenha as amostras via bootstrap do número de árvores *ntrees*;  
+2. Para cada amostra via bootstrap, cresce o número de árvores "un-puned" para a escolha da melhor quebra da árvore baseado na amostra aleatória do valor predito de mtry a cada nó da árvore;  
+- 3. Faz classificação de novos valores usando a maioria de votos p/ classificação e usa a média p/ regressão baseada nas amostras de ntrees.
+
+
+__Exemplo__
+
+```{r,echo = FALSE, eval = TRUE, message=FALSE, include = TRUE, fig.align="center"}
+#knitr::include_graphics("E:/2018-2/IC/PROJETOS/PROJ2/RECOMMENDER-IMDB/IMG/popcorn.jpg")
+knitr::include_graphics("E:/2018-2/IC/PROJETOS/PROJ2/RECOMMENDER-IMDB/IMG/ntrees.png")
+```
+
+
+
+
+## Preparação de dados
+
+Plot da variável imdb_score
+```{r}
+plot(db1$imdb_score, ylim = c(0,10))
+hist(db1$imdb_score)
+```
+
+Plot da variável WR (imdb_score penalizada)
+```{r}
+plot(db1$WR, ylim = c(0,10))
+hist(db1$WR)
+```
+
+
+```{r}
+dist1 = 2.5
+db2 = db1 %>% filter(WR >= (mean(db1$WR)- dist1) & WR <= (mean(db1$WR)+ dist1))
+paste('Excluímos ', dim(db1)[1] - dim(db2)[1], ' filmes da base. O critério aqui utilizado foi o de permanecer, apenas, filmes distantes em até ', dist1, ' estrelas da média de estrelas ',round(mean(db1$WR),2),'.')
+```
+
+
+__Transformação da variável contínua `WR`em categórica `WR_Grp`__  
+
+Transformando a variável WR em fator, com as seguintes categorias:
+
+
+- Categoria 'Baixo índice de aprovação (low score)': [0, 6.5) ★ 
+- Categoria 'Alto índice de aprovação (high score)': [6.5, 10) ★
+
+```{r}
+movie = db2
+Grp <- function(tn){
+  tn = abs(tn)
+    if (tn >= 0 & tn < median(db2$WR)){
+        return(paste0('[0, ',round(median(db2$WR),2),')'))
+    }else if(tn >= median(db2$WR)){
+        return(paste0('[',round(median(db2$WR),2),', 10]'))
+    }
+}
+# apply the Group function to the WR column
+movie$WR_Grp <- sapply(movie$WR,Grp)
+# set as factor the new column
+movie$WR_Grp <- as.factor(movie$WR_Grp)
+#View(head(movie))
+table(movie$WR_Grp)
+
+# apply the Group function to the WR column
+imdb_score_Grp <- sapply(movie$imdb_score,Grp)
+# set as factor the new column
+imdb_score_Grp <- as.factor(imdb_score_Grp)
+#View(head(movie))
+table(imdb_score_Grp)
+paste('O critério de seleção do valor de dist')
+```
+
+
+__Remoção de variáveis__
+Remove as variáveis *imdb_score*, *genres*, *plot_keywords*, *movie_imdb_link* e *WR*.
+
+```{r}
+movie$imdb_score <- NULL
+movie$genres <- NULL
+movie$plot_keywords <- NULL
+movie$movie_imdb_link <- NULL
+movie$WR <- NULL
+```
+
+
+```{r}
+glimpse(movie)
+```
+
+
+```{r}
+cat("A base de dados que iremos trabalhar no modelo tem", dim(movie)[1] , "observações e ", dim(movie)[2]-1, "variáveis, sem contar a variável que contém os títulos dos filmes.")
+```
+
+__Partição dos dados__
+
+Particionando a base de dados em Treino e Teste, esses dois (Treino e Teste) também terão armazenos os nomes dos filmes selecionados via amostragem probabilística dos dados originais separadamente das bases de Treino e Teste.
+
+Posteriormente, removemos os rótulos dos filmes nas bases Treino e Teste
+
+```{r}
+set.seed(9182345)
+ind <- sample(2, nrow(movie), replace = T, prob = c(0.7, 0.3))
+train <- movie[ind==1, -4]
+test <- movie[ind==2, -4]
+trainMovie <- movie[ind==1, 4]
+testMovie <- movie[ind==2, 4]
+```
+
+Distribuição dos escores nas bases de treino e teste
+```{r}
+round(table(train$WR_Grp)/sum(table(train$WR_Grp))*100,2)
+round(table(test$WR_Grp)/sum(table(test$WR_Grp))*100,2)
+```
+
+
+------------------------------------------------------
+
+## Random Forest - Aplicação e Resultados
+
+Inicialmente utilizaremos o pacote `randomForest` que implmenta o algoritmo de Random Forest de Breiman (baseado na clusterização de Breiman, originalmente codificada em Fortran) que tem por finalidade classificar e/ou criar regressão. Além disso, pode ser usado em um modelo não supervisionado para avaliar proximidades entre pontos. 
+
+Estamos usando, a partir daqui, a base de treino.
+```{r}
+#library(randomForest)
+#library(rpart)
+#library(rpart.plot)
+#rf <- randomForest(proximity = T,ntree = 38,do.trace = T,WR~.,data=training)
+set.seed(9984512)
+rf <- randomForest(WR_Grp~.,data=train)
+rf
+attributes(rf)
+```
+
+Olhando as 6 primeiras observações real X predito
+```{r}
+p1 <- predict(rf,train)
+head(p1)
+head(train$WR_Grp)
+```
+
+__Matriz de confusão__
+
+```{r}
+library(caret)
+library(e1071)
+confusionMatrix(p1, train$WR_Grp)
+```
+
+```{r, out.width = "400px",echo = FALSE, eval = TRUE, message=FALSE, include = TRUE, fig.align="center"}
+#knitr::include_graphics("E:/2018-2/IC/PROJETOS/PROJ2/RECOMMENDER-IMDB/IMG/popcorn.jpg")
+knitr::include_graphics("E:/2018-2/IC/PROJETOS/PROJ2/RECOMMENDER-IMDB/IMG/CONF_Matrix.png")
+```
+
+
+<!-- https://www.youtube.com/watch?v=dJclNIN-TPo -->
+
+```{r}
+RF_importance = randomForest::importance(rf)[order(randomForest::importance(rf)[,1], decreasing = TRUE), ]
+knitr::kable(RF_importance)
+```
+Verificamos que as variávei *Game_Show*, *Sci_Fi*, *Reality_TV*, *News* e *Film_Noir* não foram relevantes para o algoritmo do random forest.
+
+```{r}
+randomForest::varImpPlot(rf)
+```
+
+
+__Taxa de Erro - Random Forest__
+```{r}
+plot(rf)
+legend('topright', colnames(rf$err.rate), col=1:5, fill=1:5)
+```
+
+Observamos que, a partir do número de árvores geradas  $ntrees > 300$ o erro OOB (Out of Bag) não pode ser melhorado. 
+
+
+__Ajustando e melhorando estimativas__
+
+```{r,echo = FALSE, eval = TRUE, message=FALSE, include = FALSE}
+train1 = train #%>% select(-Sci_Fi)
+test1 = test #%>% select(-Sci_Fi)
+```
+
+Além disso, iremos alterar alguns parâmetros da função `randomForest` como o número de ntrees e mtry. Assim, repetimos o algoritmo do Random Forest, ainda usando a base treino.
+
+```{r}
+# Tune mtry
+x = as.data.frame(train1[,-31])
+y = (as.factor(train1$WR_Grp))
+t <- tuneRF(x = x, y = y,
+       stepFactor = 0.3,
+       plot = TRUE,
+       ntreeTry = 300,
+       trace = TRUE,
+       improve = 0.05)
+```
+
+Aparentemente, 5 é um bom candidato ao valor de $m_{try}$
+```{r}
+#set.seed(093180)
+set.seed(998451)
+rf1 <- randomForest(WR_Grp~.,data=train1, 
+                    ntree = 300, 
+                    mtry = 5, 
+                    importance = TRUE,
+                    proximity = TRUE)
+rf1
+RF_importance1 = randomForest::importance(rf1)[order(randomForest::importance(rf1)[,1], decreasing = TRUE), ]
+plot(rf1)
+legend('topright', colnames(rf$err.rate), col=1:5, fill=1:5)
+```
+
+__Removendo variáveis com pouca importância__
+
+Decidimos por retirar todos os fatores que retornaram importância abaixo de 10 em *MeanDecreaseGini*. Portanto, ficaremos apenas com as seguintes variáveis:
+```{r}
+RF1 = data.frame(variables = rownames(RF_importance1), importance = RF_importance1[,4])
+RF1 = RF1[order(RF1$importance, decreasing = TRUE),]
+rownames(RF1) <- NULL
+RF1 = RF1[1:10,]
+hc6_1 <- highchart() %>%
+  hc_add_series(data = RF1$importance, 
+                type = "bar",
+                name = "Importância",
+                showInLegend = FALSE,
+                tooltip = list(valueDecimals = 2, valuePrefix = "", valueSuffix = "")) %>%
+  hc_yAxis(title = list(text = "Importância"), 
+           allowDecimals = TRUE, max = 200,
+           labels = list(format = "{value}")) %>%
+  hc_xAxis(title = list(text = "Fatores"),
+           categories = RF1$variables,
+           tickmarkPlacement = "on",
+           opposite = FALSE) %>%
+  hc_title(text = "Importância por fator - Random Forest",
+           style = list(fontWeight = "bold")) %>% 
+  hc_subtitle(text = paste("")) %>%
+      hc_tooltip(valueDecimals = 2,
+                 pointFormat = "Importância: {point.y}")%>%
+                 #pointFormat = "Variável: {point.x} <br> Importância: {point.y}") 
+      hc_credits(enabled = TRUE, 
+                 text = "Fonte: IMDB/KAGGLE. Elaboração: Ewerson Pimenta.",
+                 style = list(fontSize = "10px")) %>%
+  hc_exporting(enabled = TRUE, filename = "F6_1-importance-Pimenta")
+#hc <- hc %>% 
+#  hc_add_theme(hc_theme_darkunica())
+hc6_1
+```
+
+Selecionando variáveis importantes
+```{r}
+train2 = train %>% select(num_voted_users, gross, duration, num_user_for_reviews, budget, cast_total_facebook_likes, title_year, num_critic_for_reviews, Drama, Horror, aspect_ratio, Action, Comedy, WR_Grp) %>% droplevels()
+test2 = test %>% select(num_voted_users, gross, duration, num_user_for_reviews, budget, cast_total_facebook_likes, title_year, num_critic_for_reviews, Drama, Horror, aspect_ratio, Action, Comedy, WR_Grp) %>% droplevels()
+movie = rbind(train2, test2)
+```
+
+```{r}
+# Tune mtry
+x = as.data.frame(train2[,-14])
+y = (as.factor(train2$WR_Grp))
+t <- tuneRF(x = x, y = y,
+       stepFactor = .7,
+       plot = TRUE,
+       ntreeTry = 150,
+       trace = TRUE,
+       improve = 0.05)
+```
+
+
+
+__Modelo Final__
+Os parâmetros utilizados, finalmente serão $m_{try} = 3$ e $n_{tree} = 150$
+```{r}
+set.seed(093180)
+rf_final <- randomForest(WR_Grp~.,data = train2,
+                    ntree = 150, 
+                    mtry = 3, 
+                    importance = TRUE,
+                    proximity = TRUE)
+rf_final; #attributes(rf_final)
+RF_importance1 = randomForest::importance(rf_final)[order(randomForest::importance(rf_final)[,1], decreasing = TRUE), ]
+plot(rf_final)
+legend('topright', colnames(rf$err.rate), col=1:5, fill=1:5)
+```
+
+__Predição e matriz de confusão - train data__
+```{r}
+library(caret)
+p1 <- predict(rf_final,train2)
+head(p1)
+head(train2$WR_Grp)
+confusionMatrix(p1, train2$WR_Grp)
+```
+
+__Predição e matriz de confusão - test data__
+```{r}
+p2 <- predict(rf_final,test2)
+head(p2)
+head(test2$WR_Grp)
+confusionMatrix(p2, test2$WR_Grp)
+```
+
+__Nº de nós nas árvores__
+```{r}
+hist(treesize(rf_final),
+     main = "Nº de nós por ávore",
+     col = "green")
+```
+
+<!--
+__Importância de variáveis__
+```{r}
+varImpPlot(rf_final,
+           sort = T,
+           n.var = 10,
+           main = "Top 10 - Importância de Variáveis")
+importance(rf_final) 
+varUsed(rf_final)
+```
+
+O gráfico à esquerda testa o quão ruim o modelo performa sem a variável.
+O gráfico à direita mostra o quão "puro" os nós são ao final de cada árvore sem a variável. 
+-->
+
+__Extração de uma única árvore__
+$Árvore \space n_{tree}=1$
+```{r}
+datatable(getTree(rf_final, 1, labelVar = TRUE),  
+          options = list(searchin = TRUE, pageLength = 5))
+```
+
+$Árvore \space n_{tree}=149$
+```{r}
+datatable(getTree(rf_final, 149, labelVar = TRUE),  
+          options = list(searchin = TRUE, pageLength = 5))
+```
+
+__Gráfico de escala multidimensional da matriz de proximidade__
+`Classical multidimensional scaling (MDS) of a data matrix. Also known as principal coordinates analysis (Gower, 1966).` 
+
+`Note that because of numerical errors the computed eigenvalues need not all be non-negative, and even theoretically the representation could be in fewer than n - 1 dimensions.`
+
+```{r}
+(MDIM = MDSplot(rf_final, train2$WR_Grp, pch=20))
+```
+
+`Falta acrescentar Legenda` 
+
+Plot do modelo `rpart` - *Recursive Partitioning and Regression Trees* - personalizando automaticamente a partir do gráfico para o tipo de resposta do modelo.
+```{r}
+rp <- rpart::rpart(formula = WR_Grp~.,data=test2)
+#rpart::plotcp(rp)
+rpart.plot(rp)
+rpart.plot.version1(rp)
+```
+
+`Falta acrescentar Legenda` 
+
+# Conclusão e Considerações
+
+
+O Random Forest  apresenta overfiting para os dados de treinamento, como é possível observar na  matriz de confusão obtida, e a partir de 150 arvores de regressão no algoritmo, tem-se um ganho minimo ao adicionar novas árvores. 
+
+É possível comparar nossos resultados com os resultados da usuária Yueming (disponíveis no site Kaggle clicando [AQUI](https://www.kaggle.com/carolzhangdc/predict-imdb-score-with-data-mining-algorithms) e [AQUI](https://www.kaggle.com/carolzhangdc/analyze-imdb-score-with-data-mining-algorithms)), sendo que a partir de seus resultados é possível obter algumas sugestões de melhora do nosso algoritmo, principalmente quanto ao tratamento dos dados (NA e zeros). Em nosso algoritmo, inicialmente, os filmes repetidos não haviam sido considerados, a autora observou 43 observações com repetição e variáveis com excesso de respostas nulas. Quanto as observações repetidas, replicamos o passo sugerido por ela e foram excluídos todos os filmes com repetição. 
+
+Em relação as respostas nulas em excesso, ela tratou essas, como NA, entretanto durante as etapas de preparação de dados, descobrimos que a única variável com tal problema era a "movie_facebook_likes" que acabou sendo excluída de nossa análise.
+
+Ainda foram observadas poucos filmes antes de 1980. Tal situação foi enfrentada pela autora com a exclusãos dessas observações raras. Replicamos esse passo também. De uma forma geral, a autora comparou três modelos (KNN, Árvore de Decisão e Random Forest) apenas levando em consideração a acurácia obtida nos modelos.
+
+Aqui, tentamos levar em consideração os valores, principalmente, da matriz de confusão e não somente a acurácia. E podemos concluir que:
+
+<!--
+- Utilizando a base de teste, o nosso modelo é muito bom para classificar um filme com (6,8]★, com uma sensibilidade de cerca de 96%. Entetanto, para as outras categorias o modelo se mostrou pobre e pouco robusto para o que se propôs: classificar. A exemplo disso, filmes na categoria com até 4★ tiveram um péssimo desempenho com uma sensibilidade de zero e especificidade 1, ou seja o modelo errou todas classificações desse grupo. As categorias de (4,6]★ e (8,10]★ tiveram cerca de 42% e 60% de sensibilidade, e especificidade muito altas de 96% e 99%, respectivamente. Isso seu deu, possivelmente pelo fato de as categorias serem muito desbalanceadas como podemos verificar abaixo.
+
+
+- Enquanto na base treino mais de 2mil filmes estavam na categoria de 6 a 8 ★  apenas 10 filmes se encontravam na categoria de até 4 estrelas. Esse cenário na base de teste foi propocionalmente semelhante, com 878 e 3 filmes nos grupos de 6 a 8 e 0 a 4 estrelas, respectivamente.
+
+-->
+
+- O nosso modelo é muito bom para classificar filmes com alta e baixa aprovação. Utilizando a base de teste, o modelo retornou através da matriz de confusão uma sensibilidade de cerca de 85% e uma especificidade de 80%. Além disso, uma acurácia obtida de 83%.
+
+- É valido ressaltar, também, que o erro OOB estimado foi de 20%.
+
+- Ainda através da matriz de confusão, o nosso modelo erra em uma menor quantidade de vezes uma classificação de filmes de até 6,5★ (baixa aprovação). A estimativa de erro de classificação desses filmes é de 18% versus 22% de erro de classificação em filmes com alta aprovação.
+
+- O quadro a seguir apresenta o número de filmes em cada classificação segundo a base de teste, treino e inteira (movie). Aparentemente as categorias são bem balanceadas.
+
+| Base de dados          | [0, 6.5) | [6.5, 10] |
+|------------------------|----------|-----------|
+| Movie (treino + teste) | 1883     | 1883      |
+| Treino                 | 1328     | 1339      |
+| Teste                  | 555      | 544       |
+
+<!--
+```{r}
+#View(head(movie))
+table(movie$WR_Grp)
+table(train2$WR_Grp)
+table(test2$WR_Grp)
+```
+-->
+
+
+Ainda conseguimos obter quais são os fatores/variáveis mais importantes para análise de classificação, dentre as variáveis existentes. Abaixo citamos as top 10 variáveis mais importantes.
+
+```{r}
+RF1 = RF1[1:10,]
+hc6_1 <- highchart() %>%
+  hc_add_series(data = RF1$importance, 
+                type = "bar",
+                name = "Importância",
+                showInLegend = FALSE,
+                tooltip = list(valueDecimals = 2, valuePrefix = "", valueSuffix = ""),
+                color="orange") %>%
+  hc_yAxis(title = list(text = "Importância"), 
+           allowDecimals = TRUE, max = 200,
+           labels = list(format = "{value}")) %>%
+  hc_xAxis(title = list(text = "Fatores"),
+           categories = RF1$variables,
+           tickmarkPlacement = "on",
+           opposite = FALSE) %>%
+  hc_title(text = "Importância por fator - Random Forest",
+           style = list(fontWeight = "bold")) %>% 
+  hc_subtitle(text = paste("")) %>%
+      hc_tooltip(valueDecimals = 2,
+                 pointFormat = "Importância: {point.y}")%>%
+                 #pointFormat = "Variável: {point.x} <br> Importância: {point.y}") 
+      hc_credits(enabled = TRUE, 
+                 text = "Fonte: IMDB/KAGGLE. Elaboração: Ewerson Pimenta.",
+                 style = list(fontSize = "10px")) %>%
+  hc_exporting(enabled = TRUE, filename = "F6_1-importance-Pimenta")
+#hc <- hc %>% 
+#  hc_add_theme(hc_theme_darkunica())
+hc6_1
+```
+
+
+Tempo de execução
+```{r}
+proc.time() -ptm
+```

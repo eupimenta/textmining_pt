@@ -1,0 +1,26 @@
+# Banco de Dados{.tabset .tabset-fade .tabset-pills}
+
+  O conjunto de dados utilizado foi o de título *IMDB 5000* extraído da plataforma [kaggle](https://www.kaggle.com/). As informações contidas no banco foram catalogadas de filmes publicados ao longo de 100 anos em 66 países (entre 1916 e 2016) da plataforma IMDB - Internet Movie DataBases, o Arquivo original contém 5044 filmes (observações) e 28 variáveis descritas a seguir.
+  
+```yaml
+RECOMEND.METADATA = readxl::read_xlsx(path = ".../DB/IMDB.xlsx", sheet = 1)
+db = RECOMEND.METADATA
+```
+
+```{r, echo = FALSE, eval = TRUE, message=FALSE, include = TRUE}
+INFO = c("movie_title","Title of the Movie","duration","Duration in minutes","director_name","Name of the Director of the Movie","director_facebook_likes","Number of likes of the Director on his Facebook Page",
+        "actor_1_name","Primary actor starring in the movie","actor_1_facebook_likes","Number of likes of the Actor_1 on his/her Facebook Page","actor_2_name","Other actor starring in the movie","actor_2_facebook_likes","Number of likes of the Actor_2 on his/her Facebook Page",
+        "actor_3_name","Other actor starring in the movie","actor_3_facebook_likes","Number of likes of the Actor_3 on his/her Facebook Page","num_user_for_reviews","Number of users who gave a review","num_critic_for_reviews","Number of critical reviews on imdb",
+        "num_voted_users","Number of people who voted for the movie","cast_total_facebook_likes","Total number of facebook likes of the entire cast of the movie","movie_facebook_likes","Number of Facebook likes in the movie page","plot_keywords","Keywords describing the movie plot",
+        "facenumber_in_poster","Number of the actor who featured in the movie poster","color","Film colorization. ‘Black and White’ or ‘Color’","genres","Film categorization like ‘Animation’, ‘Comedy’, ‘Romance’, ‘Horror’, ‘Sci-Fi’, ‘Action’, ‘Family’","title_year","The year in which the movie is released (1916:2016)",
+        "language","English, Arabic, Chinese, French, German, Danish, Italian, Japanese etc","country","Country where the movie is produced","content_rating","Content rating of the movie","aspect_ratio","Aspect ratio the movie was made in","movie_imdb_link","IMDB link of the movie",
+        "gross","Gross earnings of the movie in Dollars","budget","Budget of the movie in Dollars","imdb_score", "IMDB Score of the movie on IMDB")
+# Cria matriz de INFO
+INFO = as.data.frame(matrix(INFO,byrow = T, ncol = 2))
+colnames(INFO) = c("Variables", "Description")
+datatable(INFO,  
+          options = list(searchin = TRUE, pageLength = 5))
+```
+
+
+*Os dados em questão são públicos e disponíveis para download clicando  [AQUI](https://www.kaggle.com/carolzhangdc/analyze-imdb-score-with-data-mining-algorithms/data).* 
