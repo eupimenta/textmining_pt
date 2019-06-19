@@ -25,25 +25,24 @@ key_DIR = plot_diretoria_palavras_noSTOP %>%
 
 Vamos, agora, selecionar as $n=250$ palavras mais importantes de cada uma das 4 diretorias e da categoria 'OUTROS'. Para isso vamos, primeiro, separar os documentos em 3 documentos distintos, um para cada diretoria.
 ```{r}
-n=450
+#n=1500
+#n=500
+#n=500
 
 termos_dir_DEE = 
 plot_diretoria_palavras_noSTOP %>%
 filter(DIRETORIA == "DEE")
-termos_DEE = termos_dir_DEE %>%
-  top_n(n, tf_idf)
+termos_DEE = termos_dir_DEE #%>%top_n(n, tf_idf)
 
 termos_dir_DEA = 
 plot_diretoria_palavras_noSTOP %>%
 filter(DIRETORIA == "DEA")
-termos_DEA = termos_dir_DEA %>%
-  top_n(n, tf_idf)
+termos_DEA = termos_dir_DEA #%>%top_n(n, tf_idf)
 
 termos_dir_OUTROS = 
 plot_diretoria_palavras_noSTOP %>%
 filter(DIRETORIA == "OUTROS")
-termos_OUTROS = termos_dir_OUTROS %>%
-  top_n(n+200, tf_idf)
+termos_OUTROS = termos_dir_OUTROS #%>%top_n(n*3, tf_idf)
 
 termos_dir = bind_rows(mutate(termos_DEE, DIRETORIA = "DEE"),
                          mutate(termos_DEA, DIRETORIA = "DEA"),
@@ -54,24 +53,61 @@ termos_dir = bind_rows(mutate(termos_DEE, DIRETORIA = "DEE"),
 
 
 ```{r}
-gg <- gsub("[:.:]", "_", as.character(termos_dir$palavra))
-gg <- gsub("[:,:]", "_", as.character(termos_dir$palavra))
-fe <- matrix(data = 0, nrow = length(DB$DESCRI_PEDIDO1), ncol = length(gg))
+gg <- termos_dir$palavra
+gg <- unique(gg)
+fe <- matrix(data = 0, nrow = length(DB$PEDIDO1), ncol = length(gg))
 fe <- data.frame(fe); colnames(fe) <- gg
 i=j=0
 for(i in 1:length(DB$Protocolo)){
         for(j in 1:length(gg)){
-                g <- grepl(gg[j], DB$DESCRI_PEDIDO1[i])
+                g <- grepl(gg[j], DB$PEDIDO1[i])
                 if(g == TRUE){
                         fe[i, j] <- 1        
                 }
         }
 }
+
+#sum(rowSums(fe))
+dim(fe)
+#colSums(fe)
+cat(paste0("Existem ", dim(fe)[2], " termos/palavras-chaves únicas na matriz em questão."))
+    
 NumTermos = as_tibble(rbind(apply(fe,2,sum)))
 NumTermos = gather(NumTermos, key = "termo", value = "Num_Pedidos")
 NumTermos = NumTermos[order(NumTermos$Num_Pedidos, decreasing = TRUE), ]
+#View(colSums(fe))
+#View(colnames(fe))
 ```
 
+
+Vamos excluir alguns termos com pouca frequência, abaixo ou iguais a 2 (mediana)
+```{r}
+mediana1 = summary(colSums(fe))[3]
+ #removing unecessary terms
+    exclui_termos <- as.character(c())
+     cbind(Termos = colnames(fe), Freq_Termos = colSums(fe))
+    z=0
+    for (k in 1:dim(fe)[2]) {
+      if (colSums(fe)[k] <= mediana1) {
+        exclui_termos[z] <- colnames(fe)[k]
+        z = z+1
+      }
+    }
+    
+#length(exclui_termos) # [1] 409 [1] 2118
+    
+cat(paste0("Existem ", length(exclui_termos), " termos com freq. menor ou igual a mediana (", mediana1,"). Logo, se removermos estes o número de variáveis (termos) resultante será igual a ", dim(fe)[2] - length(exclui_termos), " termos únicos."))
+    fe <- fe %>% select(-exclui_termos)
+```
+
+
+```{r}
+cat(paste0("Existem, agora, ", dim(fe)[2], " termos/palavras-chaves únicas. E a nova mediana da frequência de termos restantes é igual a ",summary(colSums(fe))[3], "."))
+```
+
+
+### Critério de escolha dos termos, se a frequência for maior ou igual a 10
+IMPLEMENTAR
 
 ```yaml
 highchart() %>%
@@ -101,6 +137,7 @@ highchart() %>%
 
 
 ```{r}
+db_modelo0 = as_tibble(cbind(select(DB,Protocolo, DATA_REGISTRO, DIRETORIAS, DIRETORIA),fe))
 db_modelo = as_tibble(cbind(select(DB,DIRETORIA),fe))
 ```
 
@@ -178,7 +215,7 @@ svytotal(~DIRETORIA, strat_design)
 ```
 
 transformando a variável resposta factor em numérica
-```{r}
+```yaml
 db_modelo %>% 
   mutate(DIRETORIA = ifelse(DIRETORIA == "DEA", 1,
                           ifelse(DIRETORIA == "DEE", 2,

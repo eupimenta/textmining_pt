@@ -1,5 +1,9 @@
 ---
 title: "Mineração de texto aplicada à Lei de Acesso à informação - LAI"
+date: "`r format(Sys.time(), 'Rio de Janeiro, 30 de outubro de %Y')`"
+author: 
+- name: Ewerson C. Pimenta 
+  email: pimentaeu@yahoo.com
 output: 
   pdf_document: 
     keep_tex: yes
@@ -17,14 +21,22 @@ knitr::opts_chunk$set(echo = TRUE)
  -->
 
 ## Packages for this routine
+
+```{r INSTALPACK, echo = FALSE, eval = TRUE, message=FALSE, include = FALSE}
+list.of.packages <- c("readODS","tidyverse","tidytext","tidyr", "knitr", "rslp", "ptstem", "tm", "quanteda", "stringr", "knitr", "kableExtra", "scales", "wordcloud", "wordcloud2", "caret", "cluster", "randomForest", "rpart", "rpart.plot", "keras", "caret", "highcharter", "tinytex", "e1071", "icon")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+remove(list.of.packages, new.packages)
+```
+
 ```{r, include=FALSE, message=FALSE}
 # install.packages("readODS")
 library(readODS)        # read .ods file
 library(tidyverse)      # data manipulation tidyverse_packages()
 library(tidytext)       # Text Mining using 'dplyr', 'ggplot2', and other Tidy Tools
 library(tidyr)          # Easily Tidy Data with 'spread()' and 'gather()' Functions
-library(rslp)
-library(ptstem)
+library(rslp)           # Stemming
+library(ptstem)         # Stemming
 library(tm)
 library(quanteda)
 library(stringr)

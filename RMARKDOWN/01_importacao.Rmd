@@ -13,7 +13,7 @@ Essa Rotina é destinada a importação, estrutura e transformação de dados do
 FILE = "DATA/Pedidos_eSIC.xlsx"
 library(readxl)
 Pedidos_eSIC = read_excel(path = paste0(PATH,FILE), 
-    sheet = "ConsultaPedidos", col_types = c("numeric", 
+    sheet = "ConsultaPedidos", col_types = c("guess", 
         "text", "blank", "date", "date", 
         "text", "text", "text", "blank", 
         "text", "date"), na = "-")
@@ -32,7 +32,7 @@ glimpse(Pedidos_eSIC)
 FILE1 <- "DATA/Respostas_EPE.xlsx"
 library(readxl)
 Respostas_EPE <- read_excel(path = paste0(PATH,FILE1), 
-    sheet = "pedidos SIC EPE", col_types = c("numeric", 
+    sheet = "pedidos SIC EPE", col_types = c("guess", 
         "date", "text"))
 #View(Respostas_EPE)
 LAI1 = Respostas_EPE
@@ -63,7 +63,7 @@ stopwords_pt[1:14]
 Dicionário de variáveis - PEDIDOS
 ```{r}
 dicionario = "DATA/Dicionario-Dados-Exportacao.txt"
-dic_pedidos = read.delim(dicionario, sep = "-", skip = 3, header = FALSE, nrows = 21) %>%
+dic_pedidos = read.delim(paste0(PATH,dicionario), sep = "-", skip = 3, header = FALSE, nrows = 21) %>%
   select(-V1)
 colnames(dic_pedidos) = c("Nome das variáveis", "Tipo e descrição da variável")
 #dimnames(dic_pedidos); View(dic_pedidos)
@@ -71,7 +71,7 @@ colnames(dic_pedidos) = c("Nome das variáveis", "Tipo e descrição da variáve
 
 Dicionário de variáveis - RECURSOS
 ```{r}
-dic_recursos = read.delim(dicionario, sep = "-", skip = 30, header = FALSE, nrows = 17) %>%
+dic_recursos = read.delim(paste0(PATH,dicionario), sep = "-", skip = 30, header = FALSE, nrows = 17) %>%
   select(-V1)
 colnames(dic_recursos) = c("Nome das variáveis", "Tipo e descrição da variável")
 #dimnames(dic_recursos); View(dic_recursos)
@@ -80,7 +80,7 @@ colnames(dic_recursos) = c("Nome das variáveis", "Tipo e descrição da variáv
 Dicionário de variáveis - SOLICITANTES
 ```{r}
 dicionario = "DATA/Dicionario-Dados-Exportacao.txt"
-dic_solicitantes = read.delim(file = dicionario, sep = "-", skip = 53, header = FALSE, nrows = 10) %>%
+dic_solicitantes = read.delim(file = paste0(PATH,dicionario), sep = "-", skip = 53, header = FALSE, nrows = 10) %>%
   select(-V1)
 colnames(dic_solicitantes) = c("Nome das variáveis", "Tipo e descrição da variável")
 #dimnames(dic_solicitantes); View(dic_solicitantes)
