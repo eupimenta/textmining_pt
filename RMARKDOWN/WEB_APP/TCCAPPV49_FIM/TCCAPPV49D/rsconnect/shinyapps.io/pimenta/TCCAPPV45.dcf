@@ -1,0 +1,13 @@
+name: TCCAPPV45
+title: TCCAPPV45
+username:
+account: pimenta
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 947044
+bundleId: 2105965
+url: https://pimenta.shinyapps.io/TCCAPPV45/
+when: 1558691457.30651
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: DEMO_V4.3.R|Rpackages.bib|server_short.r|V44/server.r|V44/ui.r|V45/server.r|V45/ui.r|OUTROS

@@ -1,21 +1,22 @@
 #### Gráficos de comparação de frequência de palavras por diretorias (2 a 2)
-`COM STOPWORDS`
 
 É importante ressaltar que os gráficos a seguir mostram, apenas, a comparação de frequência de palavras existentes em ambas diretorias. Ou seja, palavras existentes em apenas uma diretoria serão desconsideradas para a geração destes.
 
 ```{r}
+#diretoria_palavras_noSTOP$DIRETORIA = as.factor(diretoria_palavras_noSTOP$DIRETORIA)
+diretoria_palavras_noSTOP$DIRETORIA = as.character(diretoria_palavras_noSTOP$DIRETORIA)
 PROP_PALAVRA = diretoria_palavras_noSTOP %>%
-    #mutate(palavra = str_extract(palavra, "[a-z']+")) %>%
+    mutate(palavra = str_extract(palavra, "[a-z']+")) %>%
     mutate(proportion = n / sum(n)) %>%
-    select(-n) %>%
-    spread(DIRETORIA, proportion)
+    select(-n) %>% spread(DIRETORIA, proportion)
 ```
 
 
 - DEE X DEA
 ```{r}
 freq00 <- PROP_PALAVRA %>%
-    gather(DIRETORIA, proportion, c(`DEA`))
+  #gather(key = DIRETORIA, value = proportion, !!2)
+    gather(key = DIRETORIA, value = proportion, `DEA`)
   
   library(scales)
   # expect a warning about rows with missing values being removed
@@ -24,8 +25,8 @@ freq00 <- PROP_PALAVRA %>%
     geom_abline(color = "gray40", lty = 2) +
     geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
     geom_text(aes(label = palavra), check_overlap = TRUE, vjust = 1.5) +
-    scale_x_log10(labels = percent_format(big.mark = ".", decimal.mark = ",", accuracy = 1), limits = c(NA, 0.01)) +
-    scale_y_log10(labels = percent_format(big.mark = ".", decimal.mark = ",", accuracy = 1), limits = c(NA, 0.01)) +
+    scale_x_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
+    scale_y_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
     scale_color_gradient(limits = c(0, 0.001),
                          low = "darkslategray4", high = "gray75") +
     facet_wrap(~DIRETORIA, ncol = 1) +
@@ -36,70 +37,6 @@ freq00 <- PROP_PALAVRA %>%
 ```{r}
 cor.test(data = freq00[freq00$DIRETORIA == "DEA",],
              ~ proportion + `DEE`)
-```
-
-- DEE X DPG
-```{r}
-freq01 <- PROP_PALAVRA %>%
-    gather(DIRETORIA, proportion, c(`DPG`))
-  
-  library(scales)
-  # expect a warning about rows with missing values being removed
-  ggplot(freq01, aes(x = proportion, y = `DEE`,
-                        color = abs(`DEE` - proportion))) +
-    geom_abline(color = "gray40", lty = 2) +
-    geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
-    geom_text(aes(label = palavra), check_overlap = TRUE, vjust = 1.5) +
-    scale_x_log10(labels = percent_format(big.mark = ".", decimal.mark = ",", accuracy = 1), limits = c(NA, 0.01)) +
-    scale_y_log10(labels = percent_format(big.mark = ".", decimal.mark = ",", accuracy = 1), limits = c(NA, 0.01)) +
-    scale_color_gradient(limits = c(0, 0.001),
-                         low = "darkslategray4", high = "gray75") +
-    facet_wrap(~DIRETORIA, ncol = 1) +
-    theme(legend.position="none") +
-    labs(y = "DEE", x = NULL)
-```
-
-```{r}
-cor.test(data = freq01[freq01$DIRETORIA == "DPG",],
-             ~ proportion + `DEE`)
-```
-
-```yaml
-Warning messages:
-1: Removed 4235 rows containing missing values (geom_point). 
-2: Removed 4236 rows containing missing values (geom_text). 
-```
-
-- DEE X DGC
-```{r}
-freq02 <- PROP_PALAVRA %>%
-    gather(DIRETORIA, proportion, c(`DGC`))
-  
-  library(scales)
-  # expect a warning about rows with missing values being removed
-  ggplot(freq02, aes(x = proportion, y = `DEE`,
-                        color = abs(`DEE` - proportion))) +
-    geom_abline(color = "gray40", lty = 2) +
-    geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
-    geom_text(aes(label = palavra), check_overlap = TRUE, vjust = 1.5) +
-    scale_x_log10(labels = percent_format(big.mark = ".", decimal.mark = ",", accuracy = 1), limits = c(NA, 0.01)) +
-    scale_y_log10(labels = percent_format(big.mark = ".", decimal.mark = ",", accuracy = 1), limits = c(NA, 0.01)) +
-    scale_color_gradient(limits = c(0, 0.001),
-                         low = "darkslategray4", high = "gray75") +
-    facet_wrap(~DIRETORIA, ncol = 1) +
-    theme(legend.position="none") +
-    labs(y = "DEE", x = NULL)
-```
-
-```{r}
-cor.test(data = freq02[freq02$DIRETORIA == "DGC",],
-             ~ proportion + `DEE`)
-```
-
-```yaml
-Warning messages:
-1: Removed 3794 rows containing missing values (geom_point). 
-2: Removed 3795 rows containing missing values (geom_text).
 ```
 
 - DEE X OUTROS
@@ -114,8 +51,8 @@ freq03 <- PROP_PALAVRA %>%
     geom_abline(color = "gray40", lty = 2) +
     geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
     geom_text(aes(label = palavra), check_overlap = TRUE, vjust = 1.5) +
-    scale_x_log10(labels = percent_format(big.mark = ".", decimal.mark = ",", accuracy = 1), limits = c(NA, 0.01)) +
-    scale_y_log10(labels = percent_format(big.mark = ".", decimal.mark = ",", accuracy = 1), limits = c(NA, 0.01)) +
+    scale_x_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
+    scale_y_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
     scale_color_gradient(limits = c(0, 0.001),
                          low = "darkslategray4", high = "gray75") +
     facet_wrap(~DIRETORIA, ncol = 1) +
@@ -134,72 +71,6 @@ Warning messages:
 2: Removed 4274 rows containing missing values (geom_text).
 ```
 
-- DEA X DPG
-```{r}
-freq04 <- PROP_PALAVRA %>%
-    gather(DIRETORIA, proportion, c(`DPG`))
-  
-  library(scales)
-  # expect a warning about rows with missing values being removed
-  ggplot(freq04, aes(x = proportion, y = `DEA`,
-                        color = abs(`DEA` - proportion))) +
-    geom_abline(color = "gray40", lty = 2) +
-    geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
-    geom_text(aes(label = palavra), check_overlap = TRUE, vjust = 1.5) +
-    scale_x_log10(labels = percent_format(big.mark = ".", decimal.mark = ",", accuracy = 1), limits = c(NA, 0.01)) +
-    scale_y_log10(labels = percent_format(big.mark = ".", decimal.mark = ",", accuracy = 1), limits = c(NA, 0.01)) +
-    scale_color_gradient(limits = c(0, 0.001),
-                         low = "darkslategray4", high = "gray75") +
-    facet_wrap(~DIRETORIA, ncol = 1) +
-    theme(legend.position="none") +
-    labs(y = "DEA", x = NULL)
-```
-
-```yaml
-Warning messages:
-1: Removed 4221 rows containing missing values (geom_point). 
-2: Removed 4222 rows containing missing values (geom_text).
-```
-
-```{r}
-cor.test(data = freq04[freq04$DIRETORIA == "DPG",],
-             ~ proportion + `DEA`)
-```
-
-
-- DEA X DGC
-```{r}
-freq05 <- PROP_PALAVRA %>%
-    gather(DIRETORIA, proportion, c(`DGC`))
-  
-  library(scales)
-  # expect a warning about rows with missing values being removed
-  ggplot(freq05, aes(x = proportion, y = `DEA`,
-                        color = abs(`DEA` - proportion))) +
-    geom_abline(color = "gray40", lty = 2) +
-    geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
-    geom_text(aes(label = palavra), check_overlap = TRUE, vjust = 1.5) +
-    scale_x_log10(labels = percent_format(big.mark = ".", decimal.mark = ",", accuracy = 1), limits = c(NA, 0.01)) +
-    scale_y_log10(labels = percent_format(big.mark = ".", decimal.mark = ",", accuracy = 1), limits = c(NA, 0.01)) +
-    scale_color_gradient(limits = c(0, 0.001),
-                         low = "darkslategray4", high = "gray75") +
-    facet_wrap(~DIRETORIA, ncol = 1) +
-    theme(legend.position="none") +
-    labs(y = "DEA", x = NULL)
-```
-
-```yaml
-Warning messages:
-1: Removed 3812 rows containing missing values (geom_point). 
-2: Removed 3813 rows containing missing values (geom_text).
-```
-
-```{r}
-cor.test(data = freq05[freq05$DIRETORIA == "DGC",],
-             ~ proportion + `DEA`)
-```
-
-
 - DEA X OUTROS
 ```{r}
 freq06 <- PROP_PALAVRA %>%
@@ -212,8 +83,8 @@ freq06 <- PROP_PALAVRA %>%
     geom_abline(color = "gray40", lty = 2) +
     geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
     geom_text(aes(label = palavra), check_overlap = TRUE, vjust = 1.5) +
-    scale_x_log10(labels = percent_format(big.mark = ".", decimal.mark = ",", accuracy = 1), limits = c(NA, 0.01)) +
-    scale_y_log10(labels = percent_format(big.mark = ".", decimal.mark = ",", accuracy = 1), limits = c(NA, 0.01)) +
+    scale_x_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
+    scale_y_log10(labels = percent_format(big.mark = ".", decimal.mark = ",")) +
     scale_color_gradient(limits = c(0, 0.001),
                          low = "darkslategray4", high = "gray75") +
     facet_wrap(~DIRETORIA, ncol = 1) +
@@ -232,104 +103,7 @@ cor.test(data = freq06[freq06$DIRETORIA == "OUTROS",],
              ~ proportion + `DEA`)
 ```
 
-- DPG X DGC
-```{r}
-freq07 <- PROP_PALAVRA %>%
-    gather(DIRETORIA, proportion, c(`DGC`))
-  
-  library(scales)
-  # expect a warning about rows with missing values being removed
-  ggplot(freq07, aes(x = proportion, y = `DPG`,
-                        color = abs(`DPG` - proportion))) +
-    geom_abline(color = "gray40", lty = 2) +
-    geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
-    geom_text(aes(label = palavra), check_overlap = TRUE, vjust = 1.5) +
-    scale_x_log10(labels = percent_format(big.mark = ".", decimal.mark = ",", accuracy = 1), limits = c(NA, 0.01)) +
-    scale_y_log10(labels = percent_format(big.mark = ".", decimal.mark = ",", accuracy = 1), limits = c(NA, 0.01)) +
-    scale_color_gradient(limits = c(0, 0.001),
-                         low = "darkslategray4", high = "gray75") +
-    facet_wrap(~DIRETORIA, ncol = 1) +
-    theme(legend.position="none") +
-    labs(y = "DPG", x = NULL)
-```
 
-```yaml
-Warning messages:
-1: Removed 4296 rows containing missing values (geom_point). 
-2: Removed 4297 rows containing missing values (geom_text). 
-```
-
-```{r}
-cor.test(data = freq07[freq07$DIRETORIA == "DGC",],
-             ~ proportion + `DPG`)
-```
-
-- DPG X OUTROS
-```{r}
-freq08 <- PROP_PALAVRA %>%
-    gather(DIRETORIA, proportion, c(`OUTROS`))
-  
-  library(scales)
-  # expect a warning about rows with missing values being removed
-  ggplot(freq08, aes(x = proportion, y = `DPG`,
-                        color = abs(`DPG` - proportion))) +
-    geom_abline(color = "gray40", lty = 2) +
-    geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
-    geom_text(aes(label = palavra), check_overlap = TRUE, vjust = 1.5) +
-    scale_x_log10(labels = percent_format(big.mark = ".", decimal.mark = ",", accuracy = 1), limits = c(NA, 0.01)) +
-    scale_y_log10(labels = percent_format(big.mark = ".", decimal.mark = ",", accuracy = 1), limits = c(NA, 0.01)) +
-    scale_color_gradient(limits = c(0, 0.001),
-                         low = "darkslategray4", high = "gray75") +
-    facet_wrap(~DIRETORIA, ncol = 1) +
-    theme(legend.position="none") +
-    labs(y = "DPG", x = NULL)
-```
-
-```yaml
-Warning messages:
-1: Removed 4450 rows containing missing values (geom_point). 
-2: Removed 4451 rows containing missing values (geom_text). 
-```
-
-```{r}
-cor.test(data = freq08[freq08$DIRETORIA == "OUTROS",],
-             ~ proportion + `DPG`)
-```
-
-
-- DGC X OUTROS
-```{r}
-freq09 <- PROP_PALAVRA %>%
-    gather(DIRETORIA, proportion, c(`OUTROS`))
-  
-  library(scales)
-  # expect a warning about rows with missing values being removed
-  ggplot(freq08, aes(x = proportion, y = `DGC`,
-                        color = abs(`DGC` - proportion))) +
-    geom_abline(color = "gray40", lty = 2) +
-    geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
-    geom_text(aes(label = palavra), check_overlap = TRUE, vjust = 1.5) +
-    scale_x_log10(labels = percent_format(big.mark = ".", decimal.mark = ",", accuracy = 1), limits = c(NA, 0.01)) +
-    scale_y_log10(labels = percent_format(big.mark = ".", decimal.mark = ",", accuracy = 1), limits = c(NA, 0.01)) +
-    scale_color_gradient(limits = c(0, 0.001),
-                         low = "darkslategray4", high = "gray75") +
-    facet_wrap(~DIRETORIA, ncol = 1) +
-    theme(legend.position="none") +
-    labs(y = "DGC", x = NULL)
-```
-
-```yaml
-Warning messages:
-1: Removed 4302 rows containing missing values (geom_point). 
-2: Removed 4303 rows containing missing values (geom_text).
-```
-
-```{r}
-cor.test(data = freq09[freq09$DIRETORIA == "OUTROS",],
-             ~ proportion + `DGC`)
-```
-
-<!--
 ```yaml
 DEE <- diretoria_palavras %>%
   filter(DIRETORIA == "DEE")
@@ -375,4 +149,30 @@ library(tidyr)
     theme(legend.position="none") +
     labs(y = "OUTROS", x = NULL)
 ```
--->
+
+
+
+
+
+```yaml
+palavras_diretoria_DEE <- DB %>%
+  select(DIRETORIA, DESCRI_PEDIDO) %>%
+  filter(DIRETORIA == "DEE") %>%
+  unnest_tokens(palavra, DESCRI_PEDIDO) 
+  #count(DIRETORIA,palavra, sort = TRUE) %>%
+  #ungroup() %>%  droplevels() %>% drop_na()
+
+palavras_diretoria_DEA <- DB %>%
+  select(DIRETORIA, DESCRI_PEDIDO) %>%
+  filter(DIRETORIA == "DEA") %>%
+  unnest_tokens(palavra, DESCRI_PEDIDO) 
+  #count(DIRETORIA,palavra, sort = TRUE) %>%
+  #ungroup() %>%  droplevels() %>% drop_na()
+
+palavras_diretoria_OUTROS <- DB %>%
+  select(DIRETORIA, DESCRI_PEDIDO) %>%
+  filter(DIRETORIA == "OUTROS") %>%
+  unnest_tokens(palavra, DESCRI_PEDIDO)
+  #count(DIRETORIA,palavra, sort = TRUE) %>%
+  #ungroup() %>%  droplevels() %>% drop_na()
+```

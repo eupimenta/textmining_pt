@@ -1,0 +1,112 @@
+---
+title: "Mineração de texto aplicada à Lei de Acesso à informação - LAI"
+date: "`r format(Sys.time(), 'Rio de Janeiro, 30 de outubro de %Y')`"
+author: 
+- name: Ewerson C. Pimenta 
+  email: pimentaeu@yahoo.com
+output: 
+  pdf_document: 
+    keep_tex: yes
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+ <!-- REFERÊNCIAS
+ https://www.tidytextmining.com/tidytext.html#contrasting-tidy-text-with-other-data-structures
+ 
+ -->
+
+## Packages for this routine
+
+```{r INSTALPACK, echo = FALSE, eval = TRUE, message=FALSE, include = FALSE}
+list.of.packages <- c(
+  "bibtex","caret","cluster","e1071","knitr","keras","kableExtra","lsa","ptstem","quanteda",
+  "randomForest","rpart","rpart.plot","rslp","stringr","scales","tidyr","tidytext","tidyverse",
+  "tinytex","tm","topicmodels","wordcloud","wordcloud2")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+bibtex::write.bib(list.of.packages[-length(list.of.packages)])
+#remove(list.of.packages, new.packages)
+```
+
+```{r, include=FALSE, message=FALSE}
+library(bibtex)         # Utility to parse a bibtex file
+library(caret)          # Classification and Regression Training 
+library(cluster)        # 
+library(e1071)          # 
+library(highcharter)    #
+library(keras)          #
+library(knitr)          # A general-purpose tool for dynamic report generation in R
+library(kableExtra)     # Add features to a kable to generate beautiful tables in html and pdf
+library(lsa)            # Calculates a latent semantic vector space from a given document-term matrix.
+library(ptstem)         # Stemming português
+library(quanteda)       # Quantitative analysis of textual data
+library(randomForest)   # RandomForest implements Breiman's random forest algorithm
+library(readODS)        # read .ods file
+library(rpart)          # Recursive Partitioning and Regression Trees
+library(rpart.plot)     # Plot an rpart model. A simplified interface to the prp function.
+library(rslp)           # Removedor de sufixos da lingua portuguesa (stemming)
+library(stringr)        # Simple, Consistent Wrappers for Common String Operations
+library(scales)         # Generic plot scaling methods
+library(tidyr)          # Easily Tidy Data with 'spread()' and 'gather()' Functions
+library(tidytext)       # Text Mining using 'dplyr', 'ggplot2', and other Tidy Tools
+library(tidyverse)      # data manipulation tidyverse_packages()
+library(tinytex)        # Helper Functions to Install and Maintain 'TeX Live' and Compile 'LaTeX' docs
+library(tm)             # Text Mining (Term-Document Matrix)
+library(topicmodels)    # An R Package for Fitting Topic Models
+library(wordcloud)      # create pretty word clouds, visualize diff and similarity between docs
+library(wordcloud2)     # An HTML5 interface to wordcloud for data visualization.
+```
+
+```{r}
+```
+
+
+# BASE DE DADOS E ANÁLISE EXPLORATÓRIA
+
+## Importação dos dados
+<!--
+PATH = "C:/proj_eSIC_v10/textmining_pt/DATA/"
+#PATH = "/Users/ewersonpimenta/Desktop/ESIC_TCC/Pedidos_LAI_EPE/BASE_DADOS/"
+-->
+```{r, include=FALSE, message=FALSE}
+PATH = "/Users/ewersonpimenta/Desktop/ESIC_TCC/TCC_v2.1/RMARKDOWN/"
+```
+
+
+Caminho do projeto
+```yaml
+PATH = "..;/proj_eSIC_v10/textmining_pt/DATA/"
+```
+
+## Importação ee estrutura dos dados
+```{r child = '01_importacao.Rmd'}
+```
+
+## Transformação e pré-processamento dos dados
+
+```{r child = '02_preprocessamento.Rmd'}
+```
+
+## Mineração de texto
+
+```{r child = '03_textmining.Rmd'}
+```
+
+```yaml
+{r child = '032_textminingpart2.Rmd'}
+```
+
+# MODELAGEM - APLICAÇÃO E RESULTADOS
+
+## Preparação e partição de dados
+```{r child = '04_preppartdados.Rmd'}
+```
+
+## Modelos de classificação
+```{r child = '05_modelagem.Rmd'}
+```

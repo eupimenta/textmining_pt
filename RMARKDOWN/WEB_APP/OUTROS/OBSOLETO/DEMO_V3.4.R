@@ -1,0 +1,418 @@
+#############################################################################################################################
+#### Até o momento o desenvolvimento está OK e funcionando com:
+# Input de dados em formato excel apenas com duas colunas onde coluna1 = 'Protocolo' e coluna2 = 'DESCRI_PEDIDO' (OK)
+# Algumas visualizações prévias da tabela inputada (.xlsx) como: str(); summary() e DT().  (OK)
+# Conversão da tabela original de textos em data.frame contendo apenas Protocolo e variáveis inseridas no modelo, 0 e 1. (OK)
+# Stemming; Stop Words; Bag of Words (OK)
+# Modelo Random Rorest Implementado pronto para uso de classificação (OK)
+
+#### Falta desenvovler:
+
+#getwd()
+setwd("/Users/ewersonpimenta/Desktop/ESIC_TCC/TCC_v2.1/RMARKDOWN/WEB_APP/")
+
+#############################################################################################################################
+
+
+library(shiny)
+library(readxl)
+library(dplyr)
+library(DT)
+
+library(caret)          # Classification and Regression Training 
+library(highcharter)    #
+library(knitr)          # A general-purpose tool for dynamic report generation in R
+library(kableExtra)     # Add features to a kable to generate beautiful tables in html and pdf
+library(lsa)            # Calculates a latent semantic vector space from a given document-term matrix.
+library(ptstem)         # Stemming português
+library(quanteda)       # Quantitative analysis of textual data
+library(randomForest)   # RandomForest implements Breiman's random forest algorithm
+library(rpart)          # Recursive Partitioning and Regression Trees
+library(rpart.plot)     # Plot an rpart model. A simplified interface to the prp function.
+library(rslp)           # Removedor de sufixos da lingua portuguesa (stemming)
+library(stringr)        # Simple, Consistent Wrappers for Common String Operations
+library(scales)         # Generic plot scaling methods
+library(tidyr)          # Easily Tidy Data with 'spread()' and 'gather()' Functions
+library(tidytext)       # Text Mining using 'dplyr', 'ggplot2', and other Tidy Tools
+library(tidyverse)      # data manipulation tidyverse_packages()
+library(tinytex)        # Helper Functions to Install and Maintain 'TeX Live' and Compile 'LaTeX' docs
+library(tm)             # Text Mining (Term-Document Matrix)
+library(topicmodels)    # An R Package for Fitting Topic Models
+library(wordcloud)      # create pretty word clouds, visualize diff and similarity between docs
+library(wordcloud2)     # An HTML5 interface to wordcloud for data visualization.
+
+
+runApp(
+  list(
+    ui = fluidPage(
+      titlePanel("Demo - Modelo de Classificação de Textos (IA c/ Envio de arq.) -  V3.40"),
+      
+      #sidebarPanel( ),
+      
+      sidebarLayout(
+        sidebarPanel(
+          fileInput("file","Enviar Arquivo .xlsx", multiple = FALSE,buttonLabel = "Procurar", accept = c(#".txt",".csv",
+                                                                                                   ".xlsx")), # fileinput() function is used to get the file upload contorl option
+          p(strong("Obs: Apenas arquivos em formato Excel (.xlsx)")),
+          helpText("Tamanho de arquivo máx. 5MB"),
+          helpText("Configure as opções de leitura do arquivo"),
+          checkboxInput(inputId = 'header', label = 'Título', value = TRUE),
+          #checkboxInput(inputId = "stringAsFactors", "stringAsFactors", FALSE),
+          #selectInput(inputId = 'sep', label = 'Separador', choices = c(','=',',';'=';',Tab='\t', Espaço=' ', 'NULL'=''), selected = ';')
+          #,uiOutput("selectfile")
+          # This is intentionally an empty object.
+          h6(textOutput("save.results")),
+          
+          helpText("Após envio de arquivo clique no botão 'Executar', a seguir, para obter resposta do modelo de classificação. "), 
+          helpText("Finalmente, após executar o programa clique em Download para download dos dados com scores obtidos do modelo preditivo."),
+          # This displays the action Button Executar
+          actionButton("run","Executar"),
+          downloadButton('downloadData', 'Download'),
+          br(),
+          
+          h5("Projeto de autoria de:"),
+          tags$a("Alize Leal e Ewerson Pimenta (2019)", 
+                 href=paste0(" https://drive.ibge.gov.br/index.php/f/5695027")),
+          tags$b("", 
+                 href=paste0("https://github.com/eupimenta/textmining_pt")),
+          h5("Desenvolvido por:"),
+          h6("Ewerson Pimenta",tags$a("(Github)", 
+                                      href=paste0("https://github.com/eupimenta"))),
+          
+          # Display the page counter text.
+          h5(textOutput("counter")), 
+          br(),
+          
+          #img(src = "https://www.rstudio.com/wp-content/uploads/2018/10/RStudio-Logo-Gray.png", height = 70, width = 200),
+          img(src = "https://www.educabras.com/media/faculdades/image/ence.png", width = 370)
+        ),
+        
+        mainPanel(
+          uiOutput("tb")
+          #tableOutput("result")
+          
+        )
+        
+      )
+    ),
+    
+    options(DT.options = list(pageLength = 50, searchHighlight = TRUE, filter = 'bottom',
+            language = list(search = 'Filter:'))),
+    
+    
+    ## Read the Prep-Modeling Data Base .csv file
+    #getwd(),
+    #setwd("/Users/ewersonpimenta/Desktop/ESIC_TCC/TCC_v2.1/RMARKDOWN/WEB_APP/"),
+    db_modelo <- read.csv("db_modelo_rf_v10.csv"),
+    
+    
+    ## Read the Stop Words .csv file
+    #getwd(),
+    #setwd("/Users/ewersonpimenta/Desktop/ESIC_TCC/TCC_v2.1/RMARKDOWN/WEB_APP/"),
+    stopwords_pt = read.csv("stopwords_PT_FINAL.csv", sep = ';', header = F, encoding = "UTF-8"),
+    #stopwords_pt = stopwords_pt[,1],
+    stopwords_pt = as.character(stopwords_pt),
+    
+    
+    server = function(input,output,session) {
+      
+      ## Side bar select input widget coming through renderUI()
+      # Following code displays the select input widget with the list of file loaded by the user
+      output$selectfile <- renderUI({
+        if(is.null(input$file)) {return()}
+        list(hr(), 
+             helpText("Selecione o arquivo desejado"),
+             selectInput("Select", "Selecione", choices=input$file$name)
+        )
+        
+      })
+      
+      
+      ## rawData inputed data by user
+      rawData <- eventReactive(input$file, {
+        req(input$file)
+        inFile <- input$file
+        read_excel(inFile$datapath, 1, col_types = c("guess", "text"))
+      })
+      
+      DB <- eventReactive(input$file, {
+        req(input$file)
+        inFile <- input$file
+        read_excel(inFile$datapath, 1, col_types = c("guess", "text"))
+      })
+      
+      
+      ## input$file is a data frame and contains the details around the name, size and temp location of the files uploaded
+      # this reactive output display the content of the input$file dataframe
+      output$filedf <- renderTable({
+        ## inFile is the name of the inputed file
+        inFile <- input$file
+        
+        if(is.null(inFile)){return ()}
+        inFile # the file input data frame object that contains the file attributes
+      })
+      
+      # Extract the file path for file
+      output$filedf2 <- renderTable({
+        if(is.null(input$file)){return ()}
+        input$file$datapath # the file input data frame object that contains the file attributes
+      })
+      
+      ## Below code to display the structure of the input file object
+      output$fileob <- renderPrint({
+        glimpse(as.tibble(rawData()))
+        #rawData()[[2]]
+        #class(rawData()[[2]])
+        #class(rawData())
+        #rawData()[[2]][1]
+      })
+      
+      
+      ## Dataset code ##
+      # This reactive output contains the dataset and display the dataset in table format
+      output$table <- renderDT( 
+        rawData(),
+        #class = "display nowrap compact", # style
+        filter = "top"
+      )
+      
+      ## Summary Stats code ##
+      # this reactive output contains the summary of the dataset and display the summary in table format
+      output$summ <- renderPrint({
+        summary(rawData())
+      })
+      
+      ## Text Classification Model code ##
+      # this reactive output contains the results of the classification predictive modeling 
+      output$textmining <- renderDataTable({
+        
+        (col_input = ncol(DB()))
+        (lin_input = nrow(DB()))
+        
+        # TUDO EM MINUSCULO
+        #Pedidos_eSIC_amostra <- read_excel("~/Desktop/ESIC_TCC/TCC_v2.1/RMARKDOWN/DATA/Pedidos_eSIC_amostra.xlsx")
+        #DB1 <- Pedidos_eSIC_amostra
+        #DB1$DESCRI_PEDIDO = tolower(DB1$`Descrição do Pedido`)
+        DB1 <- DB(); #colnames(DB1) <- c("PROTOCOLO", "DESCRI_PEDIDO")
+        DB1$DESCRI_PEDIDO = tolower(DB()[[2]])
+        
+        ## STOP WORDS
+        mystopwords <- data_frame(palavra = stopwords_pt)[,1]
+        DB1$DESCRI_PEDIDO <- removeWords(DB1$DESCRI_PEDIDO, mystopwords$palavra)
+        
+        
+        #DB1 <- data.frame(matrix(data = 0, nrow = lin_input, ncol = 1))
+        #i=j=1
+        #for (j in 1:lin_input) {
+        #  for(i in 1:dim(mystopwords)[1]){
+        #    stopw = as.character(mystopwords[i,1])
+        #    DB1$DESCRI_PEDIDO[j] = gsub(paste0("\\ ",stopw," "), " ", as.character(DB1$`Descrição do Pedido`[j]))
+        #  }
+        #}
+        
+        
+        # Stemming
+        vars <- names(DB1) #vars <- names(DB())
+        texto <-
+        DB1 %>%
+          mutate(DESCRI_PEDIDO = 
+                   removeWords(gsub("\\s+"," ",ptstem(rslp(gsub("\"","",gsub("\\s+"," ",gsub("[:§:]","",gsub("[:\":]","",
+                    gsub("[:\n:]","",gsub("[:\t:]","",gsub("[:\n\t:]"," ",gsub("[0-9]"," ",gsub("\\d+","",
+                      gsub("[:ª:]","",gsub("[:°:]","",gsub("[:º:]","",gsub("[:%:]","",gsub("[:):]","",
+                        gsub("[:(:]","",gsub("[:/:]"," ",gsub("[:&:]"," ",gsub("[:;:]","",
+                          gsub("[:__:]","",gsub("[:-:]"," ",gsub("[:?:]","",gsub("[:!:]","",
+                            gsub("[:':]"," ",gsub("[:,:]","",gsub("[:.:]","",
+                              gsub("-"," ",DESCRI_PEDIDO)       #tolower(.data[[vars[[2]]]])
+                    )))))))))))))))))))))))))), complete = TRUE)), mystopwords$palavra)
+                  )
+        
+        #View(head(DB1))
+        
+        
+        ## STOP WORDS
+        #mystopwords <- data_frame(palavra = stopwords_pt)[,1]
+        #DB1 <- data.frame(matrix(data = 0, nrow = lin_input, ncol = 1))
+        #i=j=0
+        #for (j in 1:lin_input) {
+        #  for(i in 1:dim(mystopwords)[1]){
+        #    stopw = as.character(mystopwords[i,1])
+        #    DB[i,1] = gsub(paste0("\\ ",stopw," "), " ", as.character(DB()[[2]][i]))
+        #  }
+        #}
+
+        # BAG OF WORDS MATRIX (matriz de zeros e uns)        
+        var_modelo <- names(db_modelo1)[-1] # gg
+        fe <- matrix(data = 0, nrow = lin_input, ncol = length(var_modelo))
+        fe <- data.frame(fe); colnames(fe) <- var_modelo
+        i=j=0
+        for(i in 1:lin_input){
+          for(j in 1:length(var_modelo)){
+            g <- grepl(var_modelo[j], DB1$DESCRI_PEDIDO[i])#g <- grepl(var_modelo[j], DB()[[2]][i])
+            if(g == TRUE){
+              fe[i, j] <- 1        
+            }
+          }
+        }
+        
+        exclui_termos = as.character(c())
+        termos <- colnames(fe)
+        freq_termos <- colSums(fe)
+        z=0
+        for (k in 1:length(termos)) {
+          if (freq_termos[k] <= 9) {
+            exclui_termos[z] <- termos[k]
+            z = z+1
+          }
+        }
+        #df <- (as_tibble(exclui_termos))
+        #View(df[with(df, order(value)), ])
+        
+        #df1 <- (as_tibble(colnames(db_modelo)[-1]))
+        #View(df1[with(df1, order(value)), ])
+        
+        #fe1 = fe %>% select(-exclui_termos)
+        #(fe_fim = as_tibble(cbind(texto, fe1)))
+        #dim(fe); dim(fe1)
+        
+        as_tibble(cbind(texto, fe))
+        
+      })
+      
+      output$model = renderDataTable({
+        
+        # dim(db_modelo)
+        # dim(fe)
+        db_modelo <- db_modelo %>% select(DIRETORIA, colnames(fe))
+        # dim(db_modelo1)
+        #db_modelo <- db_modelo %>% select(-r, -venc, -conex, -mont, -fotovolt, -Var.42, -moni, -altern, -cab, -cheg, -compreend,
+        #                                  -gna, -instruc, -limit, -ofic, -reproduz, -tecnolog, -inst, -mem, -desenvolv, -mwh, dem)
+        
+        #db_modelo <- db_modelo %>% select(-exclui_termos)
+        #dim(db_modelo)
+        ## Implement the Selected Best Model - Random Forest Classification Predict
+        # Partitioning Data into Training and Test
+        
+        exclui_termos = as.character(c())
+        termos <- colnames(db_modelo)[-1]
+        freq_termos <- colSums(db_modelo[-1])
+        #View(cbind(termos, freq_termos))
+        #View(cbind(colnames(db_modelo[-1]), colSums(db_modelo[-1])))
+        #View(cbind(colnames(fe), colSums(fe)))
+        
+        #z=0
+        #for (k in 1:length(termos)) {
+        #  if (freq_termos[k] <= 12) {
+        #    exclui_termos[z] <- termos[k]
+        #    z = z+1
+        #  }
+        #}
+        #df <- (as_tibble(exclui_termos))
+        #dim(df)
+        #View(df[with(df, order(value)), ])
+        
+        
+        set.seed(098798)
+        intrain <- createDataPartition(y = db_modelo$DIRETORIA, p = 0.65, list = FALSE)
+        training <- db_modelo[intrain,]
+        testing <- db_modelo[-intrain,]
+        
+        # Random Forest Classif. Model - rf3
+        set.seed(2967) #756446
+        rf3 <- randomForest(as.factor(DIRETORIA) ~ ., data=training,
+                            ntree = 420,
+                            mtry = 26,
+                            importance = TRUE,
+                            proximity = TRUE)
+        
+        #rf3
+        # Predict the testing set with the trained model
+        #predictions3 <- predict(rf3, testing[,-1], type = "class")
+        #predict(rf3, testing[,-1], type = "prob")
+        
+        # Accuracy and other metrics
+        #confusionMatrix(predictions3, as.factor(testing$DIRETORIA))
+        
+        
+        resposta = as.character(predict(rf3, fe, type = "response"))
+        tabela_resposta =
+        as.tibble(cbind(Protocolo = DB()[[1]], resposta,
+                        #ifelse(resposta == 1, "DEA", 
+                        #       ifelse(resposta == 2, "DEE", "OUTROS")),
+                        predict(rf3, fe, type = "prob")))
+                  #predict(rf4, fe, type = "prob"))
+        #as.data.frame(resposta)
+        #table(Predito = as.character(head(p4)),Real = head(training1$DIRETORIA)),
+        tabela_resposta
+        
+      })
+      
+      output$main_plot <- renderPlot({
+        plot(rf3, main = "Taxa de erro OOB - Out of Bag") #, xlab="Erro", ylab="Árvores geradas")
+        legend('topright', colnames(rf3$err.rate), col=1:5, fill=1:5)
+      })
+      
+      #output$ConfMatrix <- renderPlot({
+        #predic_input <- predict(rf3, fe, type = "response")
+        #plot(rf3)
+        
+        #confusionMatrix(predictions3, as.factor(testing$DIRETORIA))
+        
+      #})
+      
+      ## MainPanel tabset renderUI code ##
+      # the following renderUI is used to dynamically generate the tabsets when the file is loaded. 
+      # Until the file is loaded, app will not show the tabset.
+      output$tb <- renderUI({
+        if(is.null(input$file)) {return()}
+        else
+          tabsetPanel(
+            tabPanel("Arquivo (objeto r data.frame)", tableOutput("filedf"), tableOutput("filedf2")),
+            tabPanel("Estrutura do arq. e Estat. resumo", verbatimTextOutput("fileob"), verbatimTextOutput("summ")),
+            tabPanel("Dataset", DT::dataTableOutput("table")),
+            tabPanel("Mineração de Texto", DT::dataTableOutput("textmining")),
+            tabPanel("Random Forest", plotOutput(outputId = "main_plot", height = "700px")),
+            tabPanel("Modelo de Classificação de Texto", DT::dataTableOutput("model")))
+                     #, plotOutput("ConfMatrix")))
+      })
+      
+      
+      
+      
+      # This renders the data downloader
+             output$downloadData <- downloadHandler(
+               
+               filename = function(){
+                 #date_time_sys <- as.character(format.Date(Sys.time(), "RJ%Y%m%d%_%Hh%M"))
+                 paste("ClassifDados-", as.character(format.Date(Sys.time(), "RJ%Y%m%d%-%Hh%M")), ".csv", sep="")
+               },
+               
+               content = function(file) {
+                 write.csv(tabela_resposta, file)
+               }
+             )
+             
+      
+      
+      N <- 10
+      
+      result_val <- reactiveVal()
+      observeEvent(input$run,{
+        result_val(NULL)
+        withProgress(message = 'Calculando resposta', {
+          for(i in 1:N){
+            
+            # Long Running Task
+            Sys.sleep(0.15)
+            
+            # Update progress
+            incProgress(1/N)
+          }
+          result_val(quantile(rnorm(10)))
+        })
+      })
+      output$result <- renderTable({
+        result_val()
+      })
+    }
+  )
+)

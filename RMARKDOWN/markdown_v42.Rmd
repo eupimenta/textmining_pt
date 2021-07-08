@@ -1,0 +1,97 @@
+---
+title: "Mineração de texto aplicada à Lei de Acesso à informação - LAI"
+date: "`r format(Sys.time(), 'Rio de Janeiro, 30 de outubro de %Y')`"
+author: 
+- name: Ewerson C. Pimenta 
+  email: pimentaeu@yahoo.com
+output: 
+  pdf_document: 
+    keep_tex: yes
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+ <!-- REFERÊNCIAS
+ https://www.tidytextmining.com/tidytext.html#contrasting-tidy-text-with-other-data-structures
+ 
+ -->
+
+## Packages for this routine
+
+```{r INSTALPACK, echo = FALSE, eval = TRUE, message=FALSE, include = FALSE}
+list.of.packages <- c("readODS","tidyverse","tidytext","tidyr", "knitr", "rslp", "ptstem", "tm", "quanteda", "stringr", "knitr", "kableExtra", "scales", "wordcloud", "wordcloud2", "caret", "cluster", "randomForest", "rpart", "rpart.plot", "keras", "caret", "highcharter", "tinytex", "e1071", "icon")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+remove(list.of.packages, new.packages)
+```
+
+```{r, include=FALSE, message=FALSE}
+# install.packages("readODS")
+library(readODS)        # read .ods file
+library(tidyverse)      # data manipulation tidyverse_packages()
+library(tidytext)       # Text Mining using 'dplyr', 'ggplot2', and other Tidy Tools
+library(tidyr)          # Easily Tidy Data with 'spread()' and 'gather()' Functions
+library(rslp)           # Stemming
+library(ptstem)         # Stemming
+library(tm)
+library(quanteda)
+library(stringr)
+library(knitr)
+library(kableExtra)
+library(scales)
+library(wordcloud)
+library(wordcloud2)
+library(caret)
+library(rpart.plot)
+library(rpart)
+library(randomForest)
+library(tinytex)
+```
+
+# BASE DE DADOS E ANÁLISE EXPLORATÓRIA
+
+## Importação dos dados
+<!--
+PATH = "C:/proj_eSIC_v10/textmining_pt/DATA/"
+#PATH = "/Users/ewersonpimenta/Desktop/ESIC_TCC/Pedidos_LAI_EPE/BASE_DADOS/"
+-->
+```{r, include=FALSE, message=FALSE}
+PATH = "/Users/ewersonpimenta/Desktop/ESIC_TCC/TCC_v2.1/RMARKDOWN/"
+```
+
+
+Caminho do projeto
+```yaml
+PATH = "..;/proj_eSIC_v10/textmining_pt/DATA/"
+```
+
+## Importação ee estrutura dos dados
+```{r child = '01_importacao.Rmd'}
+```
+
+## Transformação e pré-processamento dos dados
+
+```{r child = '02_preprocessamento.Rmd'}
+```
+
+## Mineração de texto
+
+```{r child = '03_textmining.Rmd'}
+```
+
+```{r child = '032_textminingpart2.Rmd'}
+```
+
+# MODELAGEM - APLICAÇÃO E RESULTADOS
+
+## Preparação e partição de dados
+```{r child = '04_preppartdados.Rmd'}
+```
+
+## Modelos de classificação
+```{r child = '05_modelagem.Rmd'}
+```

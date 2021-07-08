@@ -1,0 +1,356 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```YAML
+DB$PEDIDO2 = ptstem(rslp(DB$PEDIDO1))
+```
+
+
+### Usando bigram para n=2 palavras por token
+#### top 6 de palavras por diretoria
+
+##### Figura6: Termos (**bigram**) mais relevantes por diretoria pela estatística **tf_idf**, após **stemming** e sem **stop words**
+```yaml
+{r 03_freq_palavras_dir, fig.width=9, fig.height=7}
+diretoria_palavras_bigram <- DB %>%
+  select(PEDIDO1,DIRETORIA) %>%
+  unnest_tokens(BIGRAM, PEDIDO1, token = "ngrams", n = 2) %>%
+  count(DIRETORIA, BIGRAM, sort = TRUE) %>%
+  ungroup()
+#diretoria_palavras_bigram
+
+plot_diretoria_palavras_bigram <- diretoria_palavras_bigram %>%
+  bind_tf_idf(BIGRAM, DIRETORIA, n) %>%
+  arrange(desc(tf_idf)) %>%
+  mutate(BIGRAM = factor(BIGRAM, levels = rev(unique(BIGRAM)))) %>%
+  mutate(DIRETORIA = factor(DIRETORIA, levels = c("DEA","DEE","OUTROS")))
+#View(head(plot_diretoria_palavras_bigram))
+
+#jpeg("02_freq_palavras_dir.jpeg")
+plot_diretoria_palavras_bigram %>%
+  group_by(DIRETORIA) %>%
+  top_n(6, tf_idf) %>%
+  ungroup() %>%
+  mutate(BIGRAM = reorder(BIGRAM, tf_idf)) %>%
+  ggplot(aes(BIGRAM, tf_idf, fill = DIRETORIA)) +
+  geom_col(show.legend = FALSE) +
+  labs(x = NULL, y = "tf-idf") +
+  facet_wrap(~DIRETORIA, ncol = 2, scales = "free") +
+  coord_flip() + 
+  scale_y_continuous(labels=gcomma)
+#dev.off()
+```
+
+### Usando bigram para n=3 palavras por token
+#### Frequência de palavras por diretoria
+
+##### Figura7: Termos (**trigram**) mais relevantes por diretoria pela estatística **tf_idf**, após **stemming** e sem **stop words**
+```yaml
+{r 04_freq_palavras_dir, fig.width=9, fig.height=7}
+diretoria_palavras_trigram <- DB %>%
+  select(PEDIDO1,DIRETORIA) %>%
+  unnest_tokens(TRIGRAM, PEDIDO1, token = "ngrams", n = 3) %>%
+  count(DIRETORIA, TRIGRAM, sort = TRUE) %>%
+  ungroup()
+#diretoria_palavras_trigram
+
+plot_diretoria_palavras_trigram <- diretoria_palavras_trigram %>%
+  bind_tf_idf(TRIGRAM, DIRETORIA, n) %>%
+  arrange(desc(tf_idf)) %>%
+  mutate(TRIGRAM = factor(TRIGRAM, levels = rev(unique(TRIGRAM)))) %>%
+  mutate(DIRETORIA = factor(DIRETORIA, levels = c("DEA","DEE","OUTROS")))
+#View(head(plot_diretoria_palavras_trigram))
+#jpeg("02_freq_palavras_dir.jpeg")
+plot_diretoria_palavras_trigram %>%
+  group_by(DIRETORIA) %>%
+  top_n(5, tf_idf) %>%
+  ungroup() %>%
+  mutate(TRIGRAM = reorder(TRIGRAM, tf_idf)) %>%
+  ggplot(aes(TRIGRAM, tf_idf, fill = DIRETORIA)) +
+  geom_col(show.legend = FALSE) +
+  labs(x = NULL, y = "tf-idf") +
+  facet_wrap(~DIRETORIA, ncol = 2, scales = "free") +
+  coord_flip() + 
+  scale_y_continuous(labels=gcomma)
+#dev.off()
+```
+
+### Nuvem de palavras 
+
+#### Nuvem de palavras por diretoria - s/ steeming e/ c/ stopwords - onegram
+```yaml
+{r, message=FALSE, warning=FALSE}
+plot_diretoria_palavras <- diretoria_palavras_noSTOP %>%
+  bind_tf_idf(term = palavra, document = DIRETORIA, n = n) %>%
+  arrange(desc(tf_idf)) %>%
+  mutate(palavra = factor(palavra, levels = rev(unique(palavra)))) %>%
+  mutate(DIRETORIA = factor(DIRETORIA, levels = c("DEA","DEE","OUTROS")))
+
+#View(head(plot_diretoria_palavras))
+library(wordcloud)
+plot_diretorias_tf_dif = plot_diretoria_palavras %>%
+  select(palavra, tf_idf, DIRETORIA) %>%
+  mutate(palavra = reorder(palavra, tf_idf))
+
+## DEE
+#jpeg("XX_wordclou_tfidf_dir01_DEE.jpeg")
+nuvem1 = 
+  plot_diretorias_tf_dif %>%
+  filter(DIRETORIA == "DEE") %>%
+  select(-DIRETORIA, word = palavra,freq = tf_idf) %>%
+  #top_n(150, freq) %>%
+  as.data.frame() 
+
+set.seed(231321)
+wordcloud(words = nuvem1$word, freq = nuvem1$freq, min.freq = 0.2,
+          max.words=250, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(10, "Dark2"))
+
+## DEA
+#jpeg("XX_wordclou_tfidf_dir03_DEA.jpeg")
+nuvem3 = 
+  plot_diretorias_tf_dif %>%
+  filter(DIRETORIA == "DEA") %>%
+  select(-DIRETORIA, word = palavra,freq = tf_idf) %>%
+  #top_n(150, freq) %>%
+  as.data.frame() 
+
+set.seed(231321)
+wordcloud(words = nuvem3$word, freq = nuvem3$freq, min.freq = 0.2,
+          max.words=250, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(10, "Dark2"))
+
+## OUTROS
+#jpeg("XX_wordclou_tfidf_dir05_OUTROS.jpeg")
+nuvem5 = 
+  plot_diretorias_tf_dif %>%
+  filter(DIRETORIA == "OUTROS") %>%
+  select(-DIRETORIA, word = palavra,freq = tf_idf) %>%
+  #top_n(150, freq) %>%
+  as.data.frame() 
+
+set.seed(75437)
+wordcloud(words = nuvem5$word, freq = nuvem5$freq, min.freq = 0.1,
+          max.words=250, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(10, "Dark2"))
+```
+
+
+```yaml
+#View(head(plot_diretoria_palavras))
+library(wordcloud2)
+
+plot_diretorias_tf_dif = plot_diretoria_palavras %>%
+  select(palavra, tf_idf, DIRETORIA) %>%
+  mutate(palavra = reorder(palavra, tf_idf))
+
+## DEE
+#jpeg("XX_wordclou_tfidf_dir01_DEE.jpeg")
+set.seed(233115)
+plot_diretorias_tf_dif %>%
+  filter(DIRETORIA == "DEE") %>%
+  top_n(150, tf_idf) %>%
+  wordcloud2(shuffle = TRUE, 
+             color = "random-dark",
+             shape = "circle")
+
+## DGC
+#jpeg("XX_wordclou_tfidf_dir01_DGC.jpeg")
+set.seed(233115)
+plot_diretorias_tf_dif %>%
+  filter(DIRETORIA == "DGC") %>%
+  top_n(150, tf_idf) %>%
+  wordcloud2()
+
+## DEA
+#jpeg("XX_wordclou_tfidf_dir01_DEA.jpeg")
+set.seed(233115)
+plot_diretorias_tf_dif %>%
+  filter(DIRETORIA == "DEA") %>%
+  top_n(150, tf_idf) %>%
+  wordcloud2()
+
+## DPG
+#jpeg("XX_wordclou_tfidf_dir04_DPG.jpeg")
+set.seed(233115)
+plot_diretorias_tf_dif %>%
+  filter(DIRETORIA == "DPG") %>%
+  top_n(150, tf_idf) %>%
+  wordcloud2()
+
+## OUTROS
+#jpeg("XX_wordclou_tfidf_dir01_OUTROS.jpeg")
+set.seed(233115)
+plot_diretorias_tf_dif %>%
+  filter(DIRETORIA == "OUTROS") %>%
+  top_n(150, tf_idf) %>%
+  wordcloud2()
+```
+-->
+  
+  #### Nuvem de palavras por diretoria - s/ steeming e/ou remoção de stopwords - bigram
+  
+```yaml
+{r}
+plot_diretorias_tf_dif_bigram = DB %>%
+  select(DESCRI_PEDIDO,DIRETORIA) %>%
+  unnest_tokens(BIGRAM, DESCRI_PEDIDO, token = "ngrams", n = 2) %>%
+  count(DIRETORIA, BIGRAM, sort = TRUE) %>%
+  bind_tf_idf(BIGRAM, DIRETORIA, n) %>%
+  arrange(desc(tf_idf)) %>%
+  mutate(BIGRAM = factor(BIGRAM, levels = rev(unique(BIGRAM)))) %>%
+  mutate(DIRETORIA = factor(DIRETORIA,levels=c("DEA","DEE","DGC","DPG","OUTROS"))) %>%
+  select(BIGRAM, tf_idf, DIRETORIA)
+```
+
+
+```yaml
+{r wordcloud_onegram_DIR01_semstopwords, warning=FALSE, message=FALSE}
+## DEE
+#jpeg("XX_wordclou_tfidf_dir01_DEE.jpeg")
+nuvem1.2 = 
+  plot_diretorias_tf_dif_bigram %>%
+  filter(DIRETORIA == "DEE") %>%
+  select(-DIRETORIA, word = BIGRAM,freq = tf_idf) %>%
+  #top_n(150, freq) %>%
+  as.data.frame() 
+
+set.seed(231321)
+wordcloud(words = nuvem1.2$word, freq = nuvem1.2$freq, min.freq = 0.2,
+          max.words=250, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(10, "Dark2"))
+```
+
+
+```yaml
+{r wordcloud_onegram_DIR03_semstopwords, warning=FALSE, message=FALSE}
+## DEA
+#jpeg("XX_wordclou_tfidf_dir03_DEA.jpeg")
+nuvem3.2 = 
+  plot_diretorias_tf_dif_bigram %>%
+  filter(DIRETORIA == "DEA") %>%
+  select(-DIRETORIA, word = BIGRAM,freq = tf_idf) %>%
+  #top_n(150, freq) %>%
+  as.data.frame() 
+
+set.seed(543453)
+wordcloud(words = nuvem3.2$word, freq = nuvem3.2$freq, min.freq = 0.2,
+          max.words=250, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(10, "Dark2"))
+```
+
+
+```yaml
+{r wordcloud_onegram_DIR05_semstopwords, warning=FALSE, message=FALSE}
+## OUTROS
+#jpeg("XX_wordclou_tfidf_dir05_OUTROS.jpeg")
+nuvem5.2 = 
+  plot_diretorias_tf_dif_bigram %>%
+  filter(DIRETORIA == "OUTROS") %>%
+  select(-DIRETORIA, word = BIGRAM,freq = tf_idf) %>%
+  #top_n(150, freq) %>%
+  as.data.frame() 
+
+set.seed(75437)
+wordcloud(words = nuvem5.2$word, freq = nuvem5.2$freq, min.freq = 0.1,
+          max.words=250, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(10, "Dark2"))
+```
+
+
+
+Ranque de palavras pela pela lei de **Zipf**
+```{r}
+freq_by_rank <- diretoria_palavras_noSTOP %>%
+group_by(DIRETORIA) %>%
+mutate(ranque = row_number(),
+`frequência de termos` = n/sum(n))
+```
+
+
+## tidy object into document-term matrix
+
+```{r}
+plot_diretoria_palavras <- diretoria_palavras_noSTOP %>%
+  bind_tf_idf(term = palavra, document = DIRETORIA, n = n) %>%
+  arrange(desc(tf_idf)) %>%
+  mutate(palavra = factor(palavra, levels = rev(unique(palavra)))) %>%
+  mutate(DIRETORIA = factor(DIRETORIA, levels = c("DEA","DEE","OUTROS")))
+
+dtm = plot_diretoria_palavras %>%
+  cast_dtm(document = DIRETORIA, term = palavra, n)
+```
+
+
+```{r}
+#install.packages("topicmodels")
+library(topicmodels)
+EPE_lda = LDA(dtm, k=3, control = list(seed = 12353))
+
+```
+
+```{r}
+EPE_topics = tidy(EPE_lda, matrix="beta")
+library(ggplot2)
+    library(dplyr)
+    EPE_top_terms <- EPE_topics %>%
+      group_by(topic) %>%
+      top_n(20, beta) %>%
+      ungroup() %>%
+      arrange(topic, -beta)
+    
+    EPE_top_terms %>%
+mutate(term = reorder(term, beta)) %>% ggplot(aes(term, beta, fill = factor(topic))) + geom_col(show.legend = FALSE) +
+facet_wrap(~ topic, scales = "free") + coord_flip()
+```
+
+
+```{r}
+Zipf_plot(dtm)
+Heaps_plot(dtm)
+```
+
+#### Figura1: Lei de Zipf 
+- Zipf's law
+```{r}
+#plot1
+freq_by_rank %>%
+ggplot(aes(ranque, `frequência de termos`, color = DIRETORIA)) +
+  geom_line(size = 1.1, alpha = 0.8, show.legend = FALSE) + scale_x_log10() +
+  scale_y_log10(labels=gcomma) +
+  scale_x_log10(labels=gcomma) +
+  labs(y = "frequência de termos (log)", x = "ranque (log)")
+```
+
+#### Figura1: Lei de Zipf + ajuste log-log
+```{r}
+rank_subset <- freq_by_rank %>%
+      filter(ranque < 500, ranque > 50)
+
+(zipf_ajusteloglog <- lm(log10(`frequência de termos`) ~ log10(ranque), 
+                         data = rank_subset))
+
+freq_by_rank %>%
+ggplot(aes(ranque, `frequência de termos`, color = DIRETORIA)) +
+geom_abline(intercept = coefficients(zipf_ajusteloglog)[1], slope = coefficients(zipf_ajusteloglog)[2], color = "gray50", linetype = 2) +
+geom_line(size = 1.1, alpha = 0.8, show.legend = TRUE) +
+  scale_y_log10(labels=gcomma) +
+  scale_x_log10(labels=gcomma) +
+  labs(y = "frequência de termos (log)", x = "ranque (log)")
+```
+
+lsa: Latent Semantic Analysis
+```{r}
+# https://cran.r-project.org/web/packages/lsa/lsa.pdf
+#install.packages("lsa")
+library(lsa)
+#(EPE_lsa = lsa(dtm))
+(EPE_lsa = lsa(dtm, dims=dimcalc_raw()))
+(as.textmatrix(EPE_lsa))
+```
+
+
+
